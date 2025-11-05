@@ -1,0 +1,16 @@
+# Dependencies
+/vendor/
+/node_modules/
+
+# Test outputs
+/coverage/
+/junit.xml
+/testdox.html
+
+# IDE
+/.idea/
+/.vscode/
+
+# OS
+.DS_Store
+Thumbs.db

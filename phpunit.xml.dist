@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="tests/bootstrap.php"
+         colors="true"
+         failOnWarning="true"
+         failOnRisky="true"
+         beStrictAboutOutputDuringTests="true"
+         beStrictAboutTestsThatDoNotTestAnything="true">
+
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Integration">
+            <directory>tests/Integration</directory>
+        </testsuite>
+    </testsuites>
+
+    <coverage processUncoveredFiles="true">
+        <include>
+            <directory suffix=".php">services</directory>
+            <directory suffix=".php">repositories</directory>
+            <directory suffix=".php">validation</directory>
+            <directory suffix=".php">events</directory>
+            <directory suffix=".php">controllers</directory>
+        </include>
+        <exclude>
+            <directory>migrations</directory>
+            <file>plugin.php</file>
+            <file>config.php</file>
+        </exclude>
+        <report>
+            <clover outputFile="coverage/clover.xml"/>
+            <html outputDirectory="coverage/html"/>
+            <text outputFile="coverage/coverage.txt"/>
+        </report>
+    </coverage>
+
+    <logging>
+        <junit outputFile="junit.xml"/>
+        <testdoxHtml outputFile="testdox.html"/>
+    </logging>
+
+    <php>
+        <env name="DB_TYPE" value="sqlite"/>
+        <env name="DB_PATH" value=":memory:"/>
+        <env name="OSTICKET_TEST" value="true"/>
+    </php>
+</phpunit>

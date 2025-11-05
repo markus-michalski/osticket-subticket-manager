@@ -1,0 +1,54 @@
+# Subticket Manager Plugin - Release Include (Phase 3)
+# Defines which files are included in the release package
+
+# ============================================================
+# Phase 2: Core + Admin Interface (Read-Only)
+# ============================================================
+
+# Plugin Metadata & Core
+plugin.php
+class.SubticketPlugin.php
+config.php
+queue-decoration.php
+
+# Admin & AJAX Pages (automatically deployed to scp/ on plugin enable)
+scp-files/apps.php
+scp-files/subtickets.php
+scp-files/ajax-subticket.php
+
+# Documentation
+README.md
+CHANGELOG.md
+LICENSE
+
+# ============================================================
+# Phase 3: AJAX Backend
+# ============================================================
+
+# AJAX Controller
+ajax/SubticketController.php
+
+# ============================================================
+# Phase 4: Frontend Integration
+# ============================================================
+
+# JavaScript Files
+js/subticket-panel.js
+js/queue-indicator.js
+
+# ============================================================
+# Excluded from Release (Development Only)
+# ============================================================
+# tests/
+# vendor/
+# composer.json
+# composer.lock
+# phpunit.xml
+# phpunit.xml.dist
+# .git/
+# .gitignore
+# junit.xml
+# testdox.html
+# .phpunit.result.cache
+# test-results.txt
+# TEST-REPORT-*.md

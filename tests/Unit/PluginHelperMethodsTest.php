@@ -196,9 +196,9 @@ class PluginHelperMethodsTest extends TestCase
 
         // Assert query structure (JOIN format with db_input escaping)
         $this->assertStringContainsString('SELECT t.ticket_id, t.number', $query);
-        $this->assertStringContainsString('COALESCE(CONCAT(c.name', $query);
+        $this->assertStringContainsString('cdata.subject', $query);
         $this->assertStringContainsString('FROM ost_ticket t', $query);
-        $this->assertStringContainsString('LEFT JOIN ost_user u ON t.user_id = u.id', $query);
+        $this->assertStringContainsString('LEFT JOIN ost_ticket__cdata cdata', $query);
         $this->assertStringContainsString('LEFT JOIN ost_ticket_status s', $query);
         $this->assertStringContainsString('WHERE t.ticket_pid = 1', $query);
         $this->assertStringContainsString('ORDER BY t.created ASC', $query);

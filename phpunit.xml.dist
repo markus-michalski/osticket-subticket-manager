@@ -12,21 +12,15 @@
         <testsuite name="Unit">
             <directory>tests/Unit</directory>
         </testsuite>
-        <testsuite name="Integration">
-            <directory>tests/Integration</directory>
-        </testsuite>
     </testsuites>
 
     <coverage processUncoveredFiles="true">
         <include>
-            <directory suffix=".php">services</directory>
-            <directory suffix=".php">repositories</directory>
-            <directory suffix=".php">validation</directory>
-            <directory suffix=".php">events</directory>
-            <directory suffix=".php">controllers</directory>
+            <directory suffix=".php">ajax</directory>
+            <file>class.SubticketPlugin.php</file>
+            <file>queue-decoration.php</file>
         </include>
         <exclude>
-            <directory>migrations</directory>
             <file>plugin.php</file>
             <file>config.php</file>
         </exclude>

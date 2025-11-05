@@ -2,6 +2,8 @@
 
 [🇩🇪 Deutsche Version](./README-de.md)
 
+> 📖 **[Complete Documentation & FAQ](https://faq.markus-michalski.net/en/osticket/subticket-manager)** - Detailed guides, troubleshooting, API reference, and technical details
+
 ## Overview
 
 The Subticket Manager plugin transforms osTicket's hidden parent/child ticket infrastructure into a fully functional, user-friendly feature. While osTicket provides the database structure (`ticket_pid` field) and API methods, it lacks any user interface or workflow automation.
@@ -51,15 +53,14 @@ This plugin makes osTicket's hidden parent/child infrastructure **actually usabl
 ### Step 1: Install Plugin Files
 
 #### Method 1: ZIP Download (Recommended)
-1. Download latest release from [Releases](https://github.com/markus-michalski/osticket-plugins/releases)
+1. Download latest release from [Releases](https://github.com/markus-michalski/osticket-subticket-manager/releases)
 2. Extract ZIP file
 3. Upload `subticket-manager` folder to `/include/plugins/` on osTicket server
 
 #### Method 2: Git Repository
 ```bash
 cd /path/to/osticket/include/plugins
-git clone https://github.com/markus-michalski/osticket-plugins.git
-# Plugin will be in: osticket-plugins/subticket-manager/
+git clone https://github.com/markus-michalski/osticket-subticket-manager.git
 ```
 
 ### Step 2: Enable Plugin in osTicket
@@ -168,8 +169,10 @@ See [LICENSE](./LICENSE) for details.
 
 ## 💬 Support
 
+**📖 Full Documentation:** https://faq.markus-michalski.net/en/osticket/subticket-manager
+
 For questions or issues, please create an issue on GitHub:
-https://github.com/markus-michalski/osticket-plugins/issues
+https://github.com/markus-michalski/osticket-subticket-manager/issues
 
 ## 🤝 Contributing
 

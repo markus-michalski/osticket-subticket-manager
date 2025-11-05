@@ -14,6 +14,6 @@ if (!class_exists('Queue')) {
 if (!class_exists('QueueColumnAnnotation')) {
     abstract class QueueColumnAnnotation {
         // Minimal mock implementation
-        abstract public function annotate($query, $name = false);
+        abstract static function annotate($query, $name = false);
     }
 }

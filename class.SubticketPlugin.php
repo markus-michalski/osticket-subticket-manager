@@ -317,17 +317,19 @@ class SubticketPlugin extends Plugin {
             return;
         }
 
-        // Only load on queue pages (tickets.php)
+        // Only load on queue pages (open.php, closed.php, tickets.php, etc.)
         $scriptName = basename($_SERVER['SCRIPT_NAME'] ?? '');
-        if ($scriptName !== 'tickets.php') {
-            subticket_log('Skipping queue indicator', "Not on tickets.php (current: $scriptName)");
+        $queuePages = ['tickets.php', 'open.php', 'closed.php', 'answered.php', 'overdue.php', 'assigned.php'];
+
+        if (!in_array($scriptName, $queuePages)) {
+            subticket_log('Skipping queue indicator', "Not on queue page (current: $scriptName)");
             return;
         }
 
         // Output JavaScript immediately (bootstrap runs on every page load)
         echo $this->getQueueIndicatorJavaScript();
 
-        subticket_log('Queue indicator script loaded on tickets.php');
+        subticket_log('Queue indicator script loaded', "Page: $scriptName");
     }
 
     /**

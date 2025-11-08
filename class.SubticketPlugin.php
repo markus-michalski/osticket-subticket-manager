@@ -1204,7 +1204,6 @@ JS;
         $result = db_query($sql);
 
         if ($result) {
-            error_log("[SUBTICKET-PLUGIN] Linked ticket #$childId to parent #$parentId");
             return true;
         }
 
@@ -1234,7 +1233,6 @@ JS;
         $result = db_query($sql);
 
         if ($result) {
-            error_log("[SUBTICKET-PLUGIN] Unlinked ticket #$childId from parent");
             return true;
         }
 

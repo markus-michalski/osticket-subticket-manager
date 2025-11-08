@@ -19,29 +19,11 @@
      */
     var SubticketPanel = {
         /**
-         * Debug mode - set to false in production
-         */
-        debug: false,
-
-        /**
-         * Debug logging helper
-         */
-        log: function(message) {
-            if (this.debug && console && console.log) {
-                console.log('[Subticket] ' + message);
-            }
-        },
-
-        /**
          * Initialize panel - attach event handlers
          */
         init: function() {
-            this.log('Initializing panel...');
-
             // Attach click handlers to all action buttons
             $(document).on('click', '.subticket-action', this.handleButtonClick.bind(this));
-
-            this.log('Panel initialized');
         },
 
         /**
@@ -58,8 +40,6 @@
             var childId = $btn.data('child-id');
             var $panel = $btn.closest('.subticket-panel');
             var csrfToken = $panel.data('csrf-token');
-
-            this.log('Action: ' + action + ', TicketID: ' + ticketId + ', ChildID: ' + childId);
 
             // Dispatch to appropriate handler
             switch(action) {
@@ -78,9 +58,6 @@
                 case 'create-child':
                     this.showCreateSubticketDialog(ticketId, csrfToken);
                     break;
-
-                default:
-                    this.log('Unknown action: ' + action);
             }
         },
 
@@ -240,8 +217,6 @@
             // The plugin will auto-link the new ticket to this parent after creation
             var url = 'tickets.php?a=open&subticket_parent=' + parentId;
 
-            this.log('Redirecting to Create Ticket with parent: ' + parentId);
-
             window.location.href = url;
         },
 
@@ -300,8 +275,6 @@
          * @param {number} ticketId Ticket ID
          */
         reloadPanel: function(ticketId) {
-            this.log('Reloading panel for ticket #' + ticketId);
-
             // Simple page reload for MVP
             // TODO: Implement AJAX panel refresh
             setTimeout(function() {
@@ -356,8 +329,6 @@
             } else {
                 alert('✓ ' + message);
             }
-
-            this.log('Success: ' + message);
         },
 
         /**

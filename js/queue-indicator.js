@@ -25,15 +25,6 @@
 
     var QueueIndicator = {
         /**
-         * Debug logging helper
-         */
-        debug: function() {
-            if (window.SUBTICKET_DEBUG) {
-                console.log.apply(console, ['[SubticketManager]'].concat(Array.prototype.slice.call(arguments)));
-            }
-        },
-
-        /**
          * Initialize queue indicator
          */
         init: function() {
@@ -41,8 +32,6 @@
             if (!this.isQueuePage()) {
                 return;
             }
-
-            this.debug('Queue indicator initializing...');
 
             // Wait for page load and queue table to render
             $(document).ready(function() {

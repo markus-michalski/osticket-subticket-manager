@@ -66,19 +66,14 @@
             var $rows = $('table.queue tbody tr');
 
             if ($rows.length === 0) {
-                self.debug('No ticket rows found');
                 return;
             }
 
-            self.debug('Found ' + $rows.length + ' ticket rows');
-
             // Extract ticket IDs from rows
             var ticketIds = [];
-            $rows.each(function(index) {
+            $rows.each(function() {
                 var $row = $(this);
                 var ticketId = self.getTicketIdFromRow($row);
-
-                self.debug('Row ' + index + ': ID=' + ticketId);
 
                 if (ticketId) {
                     ticketIds.push({
@@ -89,11 +84,8 @@
             });
 
             if (ticketIds.length === 0) {
-                self.debug('No ticket IDs extracted');
                 return;
             }
-
-            self.debug('Extracted ' + ticketIds.length + ' ticket IDs');
 
             // Query server for parent status (batch request)
             self.fetchParentStatus(ticketIds);
@@ -136,8 +128,6 @@
                 return item.id;
             }).join(',');
 
-            self.debug('Fetching parent status for ticket IDs:', ids);
-
             $.ajax({
                 url: 'ajax-subticket.php?action=batch_parent_status',
                 method: 'GET',
@@ -148,14 +138,12 @@
                 success: function(response) {
                     if (response.success && response.data) {
                         self.renderIndicators(ticketData, response.data);
-                        self.debug('Successfully rendered indicators for ' + Object.keys(response.data).length + ' tickets');
                     } else {
                         console.error('[SubticketManager] Invalid response:', response);
                     }
                 },
                 error: function(xhr, status, error) {
                     console.error('[SubticketManager] Failed to fetch parent status:', error);
-                    self.debug('XHR status:', status, 'Response:', xhr.responseText);
                 }
             });
         },
@@ -189,8 +177,6 @@
 
                     // Append to number cell
                     $numberCell.append($indicator);
-
-                    self.debug('Added indicator to ticket #' + item.id + ' (' + status.child_count + ' children)');
                 }
             });
         }

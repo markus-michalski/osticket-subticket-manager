@@ -364,11 +364,8 @@
             return; // Panel not found
         }
 
-        SubticketPanel.log('Found ' + $panels.length + ' panel(s)');
-
         // If there are multiple panels, remove all but the first
         if ($panels.length > 1) {
-            SubticketPanel.log('Removing ' + ($panels.length - 1) + ' duplicate panel(s)');
             $panels.slice(1).remove();
         }
 
@@ -388,7 +385,6 @@
         for (var i = 0; i < selectors.length; i++) {
             $target = $(selectors[i]).first();  // Only get FIRST matching element
             if ($target.length) {
-                SubticketPanel.log('Found tab navigation: ' + selectors[i]);
                 break;
             }
         }
@@ -396,9 +392,6 @@
         if ($target && $target.length) {
             // Move panel BEFORE the FIRST tab navigation (so it appears above tabs)
             $panel.insertBefore($target);
-            SubticketPanel.log('Panel repositioned above first tabs');
-        } else {
-            SubticketPanel.log('Could not find tab navigation - panel stays at default position');
         }
     }
 
@@ -415,8 +408,6 @@
             return; // No badge found (not a parent ticket)
         }
 
-        SubticketPanel.log('Found ' + $badges.length + ' badge(s)');
-
         // Try different selectors for ticket number heading
         var selectors = [
             'h2:contains("Ticket #")',      // Standard heading
@@ -429,7 +420,6 @@
         for (var i = 0; i < selectors.length; i++) {
             $ticketHeading = $(selectors[i]).first();
             if ($ticketHeading.length) {
-                SubticketPanel.log('Found ticket heading: ' + selectors[i]);
                 break;
             }
         }
@@ -447,10 +437,6 @@
                 'margin-top': '10px',
                 'margin-bottom': '10px'
             });
-
-            SubticketPanel.log('Parent badge repositioned below ticket number');
-        } else {
-            SubticketPanel.log('Could not find ticket heading - badge stays in panel');
         }
     }
 

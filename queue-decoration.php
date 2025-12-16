@@ -38,11 +38,11 @@ class ParentTicketDecoration extends QueueColumnAnnotation {
             return $query;
         }
 
-        return $query->annotate(array(
+        return $query->annotate([
             $name => Ticket::objects()
-                ->filter(array('ticket_pid' => new SqlField('ticket_id', 1)))
-                ->aggregate(array('count' => SqlAggregate::COUNT('ticket_id')))
-        ));
+                ->filter(['ticket_pid' => new SqlField('ticket_id', 1)])
+                ->aggregate(['count' => SqlAggregate::COUNT('ticket_id')])
+        ]);
     }
 
     /**

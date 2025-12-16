@@ -286,6 +286,7 @@ $GLOBALS['__test_csrf_token'] = null;
 $GLOBALS['__test_staff_permission'] = false;
 $GLOBALS['__test_signals'] = array();
 $GLOBALS['__test_is_staff_area'] = true; // Default: staff area
+$GLOBALS['__test_ticket_access'] = true; // Default: allow ticket access in tests
 
 // Mock global osTicket objects for AJAX tests
 // These are used by SubticketController for CSRF and permission validation

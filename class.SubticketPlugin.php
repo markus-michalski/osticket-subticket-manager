@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * Debug mode control
  * Set to true to enable detailed logging to /tmp/subticket-debug.log
@@ -52,7 +55,22 @@ require_once(__DIR__ . '/queue-decoration.php');
 
 class SubticketPlugin extends Plugin {
 
+    /**
+     * Configuration class name
+     * Note: Cannot add type declaration - parent class Plugin defines it without type
+     * @var string
+     */
     var $config_class = 'SubticketPluginConfig';
+
+    /**
+     * Maximum hierarchy depth for circular dependency checks
+     */
+    private const MAX_HIERARCHY_DEPTH = 10;
+
+    /**
+     * Maximum tickets per batch request
+     */
+    private const MAX_BATCH_SIZE = 100;
 
     /**
      * Only one instance of this plugin makes sense
@@ -119,17 +137,14 @@ class SubticketPlugin extends Plugin {
         // Auto-deploy files if version changed (solves enable() not being called on re-enable)
         $this->checkAndAutoDeployFiles();
 
-        // Register autoloader (new simple version)
-        $this->registerAutoloader();
-
         // Initialize database tables if needed
         $this->initializeDatabase();
 
         // Phase 2: Register admin interface
         $this->registerAdminPages();
 
-        // Phase 3: Register AJAX endpoints
-        $this->registerAjaxEndpoints();
+        // Phase 3: AJAX endpoints handled by standalone handler (ajax-subticket.php)
+        // No Signal registration needed - direct file access
 
         // Phase 4: Register frontend integration and event handlers
         $this->registerFrontendHooks();
@@ -141,30 +156,6 @@ class SubticketPlugin extends Plugin {
         subticket_log('Bootstrap completed', 'Phase 4 mode');
     }
 
-    /**
-     * Register class autoloader - simple and explicit
-     */
-    private function registerAutoloader() {
-        $base = INCLUDE_DIR . 'plugins/subticket-manager/';
-
-        // Explicit class-to-file mapping (no magic, no guessing)
-        $classMap = array(
-            'SubticketManager\\Services\\SubticketService' => $base . 'services/SubticketService.php',
-            'SubticketManager\\Services\\SubticketCreator' => $base . 'services/SubticketCreator.php',
-            'SubticketManager\\Repositories\\SubticketRelationRepository' => $base . 'repositories/SubticketRelationRepository.php',
-            'SubticketManager\\Validation\\SubticketValidator' => $base . 'validation/SubticketValidator.php',
-            'SubticketManager\\Cache\\SubticketCacheManager' => $base . 'cache/SubticketCacheManager.php',
-            'SubticketManager\\Events\\SubticketEventHandler' => $base . 'events/SubticketEventHandler.php',
-        );
-
-        spl_autoload_register(function($class) use ($classMap) {
-            if (isset($classMap[$class])) {
-                if (file_exists($classMap[$class])) {
-                    require_once($classMap[$class]);
-                }
-            }
-        });
-    }
 
     /**
      * Register admin pages for Phase 2 (Application-based navigation)
@@ -190,90 +181,6 @@ class SubticketPlugin extends Plugin {
         subticket_log('Staff application registered', 'Via Application class');
     }
 
-    /**
-     * Initialize event handlers
-     */
-    private function initializeEventHandlers() {
-        require_once(__DIR__ . '/events/SubticketEventHandler.php');
-
-        $handler = new \SubticketManager\Events\SubticketEventHandler();
-        $handler->bootstrap();
-    }
-
-    /**
-     * Register custom admin pages
-     */
-    private function registerCustomPages() {
-        // Add menu items to admin interface
-        if (defined('STAFFINC_DIR')) {
-            // Register admin navigation items
-            Signal::connect('nav.staff', function(&$nav) {
-                $nav[] = array(
-                    'desc' => 'Subtickets',
-                    'href' => 'subtickets.php',
-                    'iconclass' => 'icon-sitemap'
-                );
-            });
-        }
-
-        // Register AJAX endpoints
-        $this->registerAjaxEndpoints();
-    }
-
-    /**
-     * Register AJAX endpoints via signal
-     *
-     * Connects to osTicket's ajax.scp signal to register
-     * SubticketAjaxAPI routes in the dispatcher.
-     *
-     * AJAX Endpoints:
-     * - GET  /scp/ajax.php/subticket/children/{tid}
-     * - POST /scp/ajax.php/subticket/unlink
-     * - POST /scp/ajax.php/subticket/link
-     * - POST /scp/ajax.php/subticket/create
-     */
-    private function registerAjaxEndpoints() {
-        // Only register in staff context
-        if (!defined('STAFFINC_DIR')) {
-            subticket_log('Skipping AJAX registration', 'Not in staff context');
-            return;
-        }
-
-        // Connect to AJAX signal with proper callback signature
-        Signal::connect('ajax.scp', array($this, 'registerAjaxRoutes'));
-
-        subticket_log('AJAX signal connected', 'ajax.scp');
-
-        // TEST: Verify callback is callable
-        if (is_callable(array($this, 'registerAjaxRoutes'))) {
-            subticket_log('Callback verification', 'registerAjaxRoutes is callable');
-        } else {
-            subticket_log('ERROR: Callback not callable', 'registerAjaxRoutes is NOT callable!');
-        }
-    }
-
-    /**
-     * Register AJAX routes in dispatcher
-     * Called by ajax.scp signal
-     *
-     * NOTE: This method is intentionally empty. We use a standalone AJAX handler
-     * (ajax-subticket.php) instead of Signal-based routing because the Signal
-     * approach was never fully implemented and would require creating a
-     * SubticketAjaxAPI class and additional routing complexity.
-     *
-     * The standalone handler provides simpler, more maintainable AJAX endpoints:
-     * - /scp/ajax-subticket.php?action=link
-     * - /scp/ajax-subticket.php?action=unlink
-     * - /scp/ajax-subticket.php?action=batch_parent_status
-     *
-     * @param Dispatcher $dispatcher The AJAX route dispatcher (also $object from signal)
-     * @param mixed $data Signal data (by reference, usually null)
-     * @since 1.4.0
-     */
-    public function registerAjaxRoutes($dispatcher, &$data=null) {
-        // Intentionally empty - we use standalone AJAX handler instead
-        subticket_log('AJAX route registration', 'Using standalone handler (ajax-subticket.php)');
-    }
 
     /**
      * Register frontend hooks for ticket view integration
@@ -1248,7 +1155,7 @@ JS;
      * @return bool True if ticketId is descendant of ancestorId
      */
     private function isDescendant($ticketId, $ancestorId) {
-        $maxDepth = 10; // Prevent infinite loops
+        $maxDepth = self::MAX_HIERARCHY_DEPTH;
         $currentId = $ticketId;
 
         for ($i = 0; $i < $maxDepth; $i++) {

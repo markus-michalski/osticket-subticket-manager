@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 // Only include osTicket classes if they exist (not in test environment)
 if (defined('INCLUDE_DIR') && file_exists(INCLUDE_DIR . 'class.plugin.php')) {
     require_once INCLUDE_DIR . 'class.plugin.php';

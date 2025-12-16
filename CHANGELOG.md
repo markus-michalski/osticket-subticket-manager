@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Nothing yet
 
+## [2.0.1] - 2025-12-16
+
+### Fixed
+- prevent duplicate event handlers and double AJAX requests
+- allow admin users to bypass department access check
+- support alphanumeric ticket numbers in parent linking
+
 ## [2.0.0] - 2025-12-16
 
 ### Changed

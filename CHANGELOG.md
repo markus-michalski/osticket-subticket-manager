@@ -16,6 +16,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Nothing yet
 
+## [2.0.0] - 2025-12-16
+
+### Changed
+- improve vendor section documentation in .releaseinclude
+- extract God Class into PSR-4 service architecture
+- improve code quality and security
+
+### Fixed
+- remove debug logging calls causing production errors
+
 ## [1.0.2] - 2025-11-08
 
 ### Changed

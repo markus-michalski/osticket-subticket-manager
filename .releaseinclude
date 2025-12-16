@@ -1,8 +1,8 @@
-# Subticket Manager Plugin - Release Include (Phase 3)
+# Subticket Manager Plugin - Release Include
 # Defines which files are included in the release package
 
 # ============================================================
-# Phase 2: Core + Admin Interface (Read-Only)
+# Core Plugin Files
 # ============================================================
 
 # Plugin Metadata & Core
@@ -10,6 +10,18 @@ plugin.php
 class.SubticketPlugin.php
 config.php
 queue-decoration.php
+
+# Service Classes (PSR-4)
+src/Asset/AssetDeployer.php
+src/Config/ConfigCache.php
+src/Database/DatabaseService.php
+src/Hierarchy/HierarchyService.php
+src/Signal/TicketEventHandler.php
+src/UI/PanelRenderer.php
+
+# Composer Autoload
+vendor/autoload.php
+vendor/composer/
 
 # Admin & AJAX Pages (automatically deployed to scp/ on plugin enable)
 scp-files/apps.php

@@ -22,11 +22,12 @@ class SubticketPluginConfig extends PluginConfig
      */
     static function translate($plugin = 'subticket-manager') {
         if (!method_exists('Plugin', 'translate')) {
-            return array(
+            return [
                 function($x) { return $x; },
                 function($x, $y, $n) { return $n != 1 ? $y : $x; },
-            );
+            ];
         }
+        /** @disregard P1013 (Plugin class may not exist in test environment) */
         return Plugin::translate($plugin);
     }
 
@@ -37,103 +38,103 @@ class SubticketPluginConfig extends PluginConfig
      */
     function getOptions()
     {
-        return array(
-            'max_depth' => new TextboxField(array(
+        return [
+            'max_depth' => new TextboxField([
                 'id' => 'max_depth',
                 'label' => 'Maximum Hierarchy Depth',
-                'configuration' => array(
+                'configuration' => [
                     'size' => 10,
                     'length' => 5,
                     'desc' => 'Maximum nesting level for subtickets (0-10, default: 3)'
-                ),
+                ],
                 'default' => '3'
-            )),
+            ]),
 
-            'max_children' => new TextboxField(array(
+            'max_children' => new TextboxField([
                 'id' => 'max_children',
                 'label' => 'Maximum Children per Parent',
-                'configuration' => array(
+                'configuration' => [
                     'size' => 10,
                     'length' => 5,
                     'desc' => 'Maximum number of subtickets allowed per parent (default: 50)'
-                ),
+                ],
                 'default' => '50'
-            )),
+            ]),
 
-            'auto_close_parent' => new BooleanField(array(
+            'auto_close_parent' => new BooleanField([
                 'id' => 'auto_close_parent',
                 'label' => 'Auto-close Parent Ticket',
-                'configuration' => array(
+                'configuration' => [
                     'desc' => 'Automatically close parent ticket when all subtickets are closed'
-                ),
+                ],
                 'default' => true
-            )),
+            ]),
 
-            'cascade_hold' => new BooleanField(array(
+            'cascade_hold' => new BooleanField([
                 'id' => 'cascade_hold',
                 'label' => 'Cascade Hold Status',
-                'configuration' => array(
+                'configuration' => [
                     'desc' => 'When parent is set to "On Hold", automatically hold all subtickets'
-                ),
+                ],
                 'default' => true
-            )),
+            ]),
 
-            'cascade_assignment' => new BooleanField(array(
+            'cascade_assignment' => new BooleanField([
                 'id' => 'cascade_assignment',
                 'label' => 'Cascade Assignment Changes',
-                'configuration' => array(
+                'configuration' => [
                     'desc' => 'When parent ticket is reassigned, automatically reassign all subtickets'
-                ),
+                ],
                 'default' => false
-            )),
+            ]),
 
-            'show_children_in_queue' => new BooleanField(array(
+            'show_children_in_queue' => new BooleanField([
                 'id' => 'show_children_in_queue',
                 'label' => 'Show Subtickets in Queue',
-                'configuration' => array(
+                'configuration' => [
                     'desc' => 'Display subtickets in queue views (default: hide, show only parent)'
-                ),
+                ],
                 'default' => false
-            )),
+            ]),
 
-            'require_parent_open' => new BooleanField(array(
+            'require_parent_open' => new BooleanField([
                 'id' => 'require_parent_open',
                 'label' => 'Require Parent Ticket to be Open',
-                'configuration' => array(
+                'configuration' => [
                     'desc' => 'Prevent creating subtickets when parent ticket is closed'
-                ),
+                ],
                 'default' => true
-            )),
+            ]),
 
-            'allow_nested_subtickets' => new BooleanField(array(
+            'allow_nested_subtickets' => new BooleanField([
                 'id' => 'allow_nested_subtickets',
                 'label' => 'Allow Nested Subtickets',
-                'configuration' => array(
+                'configuration' => [
                     'desc' => 'Allow subtickets to have their own subtickets (child tickets can become parents)'
-                ),
+                ],
                 'default' => true
-            )),
+            ]),
 
-            'notify_on_auto_close' => new BooleanField(array(
+            'notify_on_auto_close' => new BooleanField([
                 'id' => 'notify_on_auto_close',
                 'label' => 'Notify on Auto-Close',
-                'configuration' => array(
+                'configuration' => [
                     'desc' => 'Send notification when parent ticket is automatically closed'
-                ),
+                ],
                 'default' => true
-            )),
+            ]),
 
-            'remove_data_on_uninstall' => new BooleanField(array(
+            'remove_data_on_uninstall' => new BooleanField([
                 'id' => 'remove_data_on_uninstall',
                 'label' => 'Remove Data on Uninstall',
-                'configuration' => array(
+                'configuration' => [
                     'desc' => 'Delete all subticket metadata when plugin is uninstalled (WARNING: This cannot be undone!)'
-                ),
+                ],
                 'default' => false
-            ))
+            ])
 
             // NOTE: Debug mode is currently controlled by SUBTICKET_DEBUG constant
             // in class.SubticketPlugin.php (line 12). UI config coming in future version.
-        );
+        ];
     }
 }

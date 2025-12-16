@@ -1,52 +1,30 @@
 <?php
 /**
- * Comprehensive Tests for Phase 2 Database Migration
+ * Comprehensive Tests for Database Migration (Refactored for Service Architecture)
  *
- * Tests the initializeDatabase() method in SubticketPlugin which:
- * - Creates ost_ticket_hierarchy_metadata table
- * - Creates ost_ticket_progress table
- * - Adds version column to ost_ticket
- * - Creates indexes (idx_ticket_pid, idx_ticket_hierarchy)
- * - Adds foreign key constraints
- * - Migrates existing tables to unsigned columns
+ * Tests the DatabaseService which handles:
+ * - Creating ost_ticket_hierarchy_metadata table
+ * - Creating ost_ticket_progress table
+ * - Adding version column to ost_ticket
+ * - Creating indexes (idx_ticket_pid, idx_ticket_hierarchy)
+ * - Adding foreign key constraints
+ * - Migrating existing tables to unsigned columns
  *
- * Test Strategy: Integration tests with mocked database
- * Phase: RED-GREEN-REFACTOR (writing tests AFTER implementation)
- *
- * IMPORTANT: These tests verify implementation correctness and prevent regressions.
- * Although TDD purists prefer tests-first, we're ensuring comprehensive coverage
- * for existing production code.
+ * Test Strategy: Unit tests with mocked database
  */
 
 namespace SubticketManager\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
+use SubticketManager\Database\DatabaseService;
 
 // Load bootstrap FIRST (defines MockDbResult in global namespace)
 require_once dirname(__DIR__) . '/bootstrap.php';
 
-// Load plugin class AFTER bootstrap
-require_once dirname(__DIR__, 2) . '/class.SubticketPlugin.php';
-
-/**
- * Testable wrapper for SubticketPlugin to expose private methods
- */
-class TestableDatabasePlugin extends \SubticketPlugin {
-    /**
-     * Expose private initializeDatabase() method for testing
-     */
-    public function testInitializeDatabase() {
-        // Use reflection to call private method
-        $method = new \ReflectionMethod('SubticketPlugin', 'initializeDatabase');
-        $method->setAccessible(true);
-        return $method->invoke($this);
-    }
-}
-
 class DatabaseMigrationTest extends TestCase
 {
-    /** @var TestableDatabasePlugin */
-    private $plugin;
+    /** @var DatabaseService */
+    private $databaseService;
 
     protected function setUp(): void
     {
@@ -55,8 +33,8 @@ class DatabaseMigrationTest extends TestCase
         // Reset global test query tracker
         reset_test_db_queries();
 
-        // Create plugin instance
-        $this->plugin = new TestableDatabasePlugin();
+        // Create DatabaseService instance
+        $this->databaseService = new DatabaseService();
     }
 
     protected function tearDown(): void
@@ -85,17 +63,17 @@ class DatabaseMigrationTest extends TestCase
     public function testFreshInstallationCreatesAllDatabaseObjects()
     {
         // Mock database results for fresh installation (no existing tables/columns)
-        $this->mockMultipleDbQueries(array(
+        $this->mockMultipleDbQueries([
             // Check if ost_ticket_hierarchy_metadata exists (NO)
-            array(),
+            [],
             // Check if ost_ticket_progress exists (NO)
-            array(),
+            [],
             // Check if version column exists (NO)
-            array(),
+            [],
             // Check if idx_ticket_pid exists (NO)
-            array(),
+            [],
             // Check if idx_ticket_hierarchy exists (NO)
-            array(),
+            [],
             // CREATE TABLE ost_ticket_hierarchy_metadata (SUCCESS)
             true,
             // CREATE TABLE ost_ticket_progress (SUCCESS)
@@ -107,29 +85,29 @@ class DatabaseMigrationTest extends TestCase
             // CREATE INDEX idx_ticket_hierarchy (SUCCESS)
             true,
             // Check if metadata table exists for migration (YES - just created)
-            array(array('Tables_in_test' => 'ost_ticket_hierarchy_metadata')),
+            [['Tables_in_test' => 'ost_ticket_hierarchy_metadata']],
             // Check if metadata.ticket_id is unsigned (YES - created as unsigned)
-            array(array('Field' => 'ticket_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '')),
+            [['Field' => 'ticket_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '']],
             // Check if progress table exists for migration (YES - just created)
-            array(array('Tables_in_test' => 'ost_ticket_progress')),
+            [['Tables_in_test' => 'ost_ticket_progress']],
             // Check if progress.parent_id is unsigned (YES - created as unsigned)
-            array(array('Field' => 'parent_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '')),
+            [['Field' => 'parent_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '']],
             // Check if metadata table exists for FK (YES - just created)
-            array(array('Tables_in_test' => 'ost_ticket_hierarchy_metadata')),
+            [['Tables_in_test' => 'ost_ticket_hierarchy_metadata']],
             // Check if FK exists on metadata table (NO)
-            array(),
+            [],
             // ALTER TABLE ADD CONSTRAINT FK on metadata (SUCCESS)
             true,
             // Check if progress table exists for FK (YES - just created)
-            array(array('Tables_in_test' => 'ost_ticket_progress')),
+            [['Tables_in_test' => 'ost_ticket_progress']],
             // Check if FK exists on progress table (NO)
-            array(),
+            [],
             // ALTER TABLE ADD CONSTRAINT FK on progress (SUCCESS)
             true
-        ));
+        ]);
 
         // Execute initialization
-        $this->plugin->testInitializeDatabase();
+        $this->databaseService->initialize();
 
         // Assert all SQL statements were executed
         $queries = get_test_db_queries();
@@ -169,30 +147,30 @@ class DatabaseMigrationTest extends TestCase
     public function testMetadataTableCreatedWithCorrectSchema()
     {
         // Mock: Table doesn't exist, creation succeeds
-        $this->mockMultipleDbQueries(array(
-            array(), // SHOW TABLES: metadata doesn't exist
-            array(), // SHOW TABLES: progress doesn't exist
-            array(), // SHOW COLUMNS: version doesn't exist
-            array(), // SHOW INDEX: idx_ticket_pid doesn't exist
-            array(), // SHOW INDEX: idx_ticket_hierarchy doesn't exist
+        $this->mockMultipleDbQueries([
+            [], // SHOW TABLES: metadata doesn't exist
+            [], // SHOW TABLES: progress doesn't exist
+            [], // SHOW COLUMNS: version doesn't exist
+            [], // SHOW INDEX: idx_ticket_pid doesn't exist
+            [], // SHOW INDEX: idx_ticket_hierarchy doesn't exist
             true,    // CREATE TABLE metadata (SUCCESS)
             true,    // CREATE TABLE progress (SUCCESS)
             true,    // ALTER TABLE ADD COLUMN version (SUCCESS)
             true,    // CREATE INDEX pid (SUCCESS)
             true,    // CREATE INDEX hierarchy (SUCCESS)
-            array(array('Tables_in_test' => 'ost_ticket_hierarchy_metadata')), // Table exists
-            array(array('Field' => 'ticket_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '')),
-            array(array('Tables_in_test' => 'ost_ticket_progress')), // Table exists
-            array(array('Field' => 'parent_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '')),
-            array(array('Tables_in_test' => 'ost_ticket_hierarchy_metadata')),
-            array(), // FK check
+            [['Tables_in_test' => 'ost_ticket_hierarchy_metadata']], // Table exists
+            [['Field' => 'ticket_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '']],
+            [['Tables_in_test' => 'ost_ticket_progress']], // Table exists
+            [['Field' => 'parent_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '']],
+            [['Tables_in_test' => 'ost_ticket_hierarchy_metadata']],
+            [], // FK check
             true,    // FK creation
-            array(array('Tables_in_test' => 'ost_ticket_progress')), // Table exists
-            array(), // FK check
+            [['Tables_in_test' => 'ost_ticket_progress']], // Table exists
+            [], // FK check
             true     // FK creation
-        ));
+        ]);
 
-        $this->plugin->testInitializeDatabase();
+        $this->databaseService->initialize();
 
         $queries = get_test_db_queries();
         $createTableQuery = $this->findQueryContaining('CREATE TABLE IF NOT EXISTS `ost_ticket_hierarchy_metadata`', $queries);
@@ -225,30 +203,30 @@ class DatabaseMigrationTest extends TestCase
      */
     public function testProgressTableCreatedWithCorrectSchema()
     {
-        $this->mockMultipleDbQueries(array(
-            array(), // metadata doesn't exist
-            array(), // progress doesn't exist
-            array(), // version doesn't exist
-            array(), // idx_ticket_pid doesn't exist
-            array(), // idx_ticket_hierarchy doesn't exist
+        $this->mockMultipleDbQueries([
+            [], // metadata doesn't exist
+            [], // progress doesn't exist
+            [], // version doesn't exist
+            [], // idx_ticket_pid doesn't exist
+            [], // idx_ticket_hierarchy doesn't exist
             true,    // CREATE TABLE metadata
             true,    // CREATE TABLE progress
             true,    // ADD COLUMN version
             true,    // CREATE INDEX pid
             true,    // CREATE INDEX hierarchy
-            array(array('Tables_in_test' => 'ost_ticket_hierarchy_metadata')),
-            array(array('Field' => 'ticket_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '')),
-            array(array('Tables_in_test' => 'ost_ticket_progress')),
-            array(array('Field' => 'parent_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '')),
-            array(array('Tables_in_test' => 'ost_ticket_hierarchy_metadata')),
-            array(), // FK check
+            [['Tables_in_test' => 'ost_ticket_hierarchy_metadata']],
+            [['Field' => 'ticket_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '']],
+            [['Tables_in_test' => 'ost_ticket_progress']],
+            [['Field' => 'parent_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '']],
+            [['Tables_in_test' => 'ost_ticket_hierarchy_metadata']],
+            [], // FK check
             true,    // FK creation
-            array(array('Tables_in_test' => 'ost_ticket_progress')),
-            array(), // FK check
+            [['Tables_in_test' => 'ost_ticket_progress']],
+            [], // FK check
             true     // FK creation
-        ));
+        ]);
 
-        $this->plugin->testInitializeDatabase();
+        $this->databaseService->initialize();
 
         $queries = get_test_db_queries();
         $createTableQuery = $this->findQueryContaining('CREATE TABLE IF NOT EXISTS `ost_ticket_progress`', $queries);
@@ -275,30 +253,30 @@ class DatabaseMigrationTest extends TestCase
      */
     public function testVersionColumnAddedWithCorrectDataType()
     {
-        $this->mockMultipleDbQueries(array(
-            array(), // metadata doesn't exist
-            array(), // progress doesn't exist
-            array(), // version doesn't exist
-            array(), // idx_ticket_pid doesn't exist
-            array(), // idx_ticket_hierarchy doesn't exist
+        $this->mockMultipleDbQueries([
+            [], // metadata doesn't exist
+            [], // progress doesn't exist
+            [], // version doesn't exist
+            [], // idx_ticket_pid doesn't exist
+            [], // idx_ticket_hierarchy doesn't exist
             true,    // CREATE TABLE metadata
             true,    // CREATE TABLE progress
             true,    // ADD COLUMN version
             true,    // CREATE INDEX pid
             true,    // CREATE INDEX hierarchy
-            array(array('Tables_in_test' => 'ost_ticket_hierarchy_metadata')),
-            array(array('Field' => 'ticket_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '')),
-            array(array('Tables_in_test' => 'ost_ticket_progress')),
-            array(array('Field' => 'parent_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '')),
-            array(array('Tables_in_test' => 'ost_ticket_hierarchy_metadata')),
-            array(), // FK check
+            [['Tables_in_test' => 'ost_ticket_hierarchy_metadata']],
+            [['Field' => 'ticket_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '']],
+            [['Tables_in_test' => 'ost_ticket_progress']],
+            [['Field' => 'parent_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '']],
+            [['Tables_in_test' => 'ost_ticket_hierarchy_metadata']],
+            [], // FK check
             true,    // FK creation
-            array(array('Tables_in_test' => 'ost_ticket_progress')),
-            array(), // FK check
+            [['Tables_in_test' => 'ost_ticket_progress']],
+            [], // FK check
             true     // FK creation
-        ));
+        ]);
 
-        $this->plugin->testInitializeDatabase();
+        $this->databaseService->initialize();
 
         $queries = get_test_db_queries();
         $alterTableQuery = $this->findQueryContaining('ALTER TABLE `ost_ticket` ADD COLUMN `version`', $queries);
@@ -316,30 +294,30 @@ class DatabaseMigrationTest extends TestCase
      */
     public function testIndexesCreatedWithCorrectColumns()
     {
-        $this->mockMultipleDbQueries(array(
-            array(), // metadata doesn't exist
-            array(), // progress doesn't exist
-            array(), // version doesn't exist
-            array(), // idx_ticket_pid doesn't exist
-            array(), // idx_ticket_hierarchy doesn't exist
+        $this->mockMultipleDbQueries([
+            [], // metadata doesn't exist
+            [], // progress doesn't exist
+            [], // version doesn't exist
+            [], // idx_ticket_pid doesn't exist
+            [], // idx_ticket_hierarchy doesn't exist
             true,    // CREATE TABLE metadata
             true,    // CREATE TABLE progress
             true,    // ADD COLUMN version
             true,    // CREATE INDEX pid
             true,    // CREATE INDEX hierarchy
-            array(array('Tables_in_test' => 'ost_ticket_hierarchy_metadata')),
-            array(array('Field' => 'ticket_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '')),
-            array(array('Tables_in_test' => 'ost_ticket_progress')),
-            array(array('Field' => 'parent_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '')),
-            array(array('Tables_in_test' => 'ost_ticket_hierarchy_metadata')),
-            array(), // FK check
+            [['Tables_in_test' => 'ost_ticket_hierarchy_metadata']],
+            [['Field' => 'ticket_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '']],
+            [['Tables_in_test' => 'ost_ticket_progress']],
+            [['Field' => 'parent_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '']],
+            [['Tables_in_test' => 'ost_ticket_hierarchy_metadata']],
+            [], // FK check
             true,    // FK creation
-            array(array('Tables_in_test' => 'ost_ticket_progress')),
-            array(), // FK check
+            [['Tables_in_test' => 'ost_ticket_progress']],
+            [], // FK check
             true     // FK creation
-        ));
+        ]);
 
-        $this->plugin->testInitializeDatabase();
+        $this->databaseService->initialize();
 
         $queries = get_test_db_queries();
 
@@ -362,30 +340,30 @@ class DatabaseMigrationTest extends TestCase
      */
     public function testForeignKeyConstraintsAddedWithCascadeDelete()
     {
-        $this->mockMultipleDbQueries(array(
-            array(), // metadata doesn't exist
-            array(), // progress doesn't exist
-            array(), // version doesn't exist
-            array(), // idx_ticket_pid doesn't exist
-            array(), // idx_ticket_hierarchy doesn't exist
+        $this->mockMultipleDbQueries([
+            [], // metadata doesn't exist
+            [], // progress doesn't exist
+            [], // version doesn't exist
+            [], // idx_ticket_pid doesn't exist
+            [], // idx_ticket_hierarchy doesn't exist
             true,    // CREATE TABLE metadata
             true,    // CREATE TABLE progress
             true,    // ADD COLUMN version
             true,    // CREATE INDEX pid
             true,    // CREATE INDEX hierarchy
-            array(array('Tables_in_test' => 'ost_ticket_hierarchy_metadata')),
-            array(array('Field' => 'ticket_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '')),
-            array(array('Tables_in_test' => 'ost_ticket_progress')),
-            array(array('Field' => 'parent_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '')),
-            array(array('Tables_in_test' => 'ost_ticket_hierarchy_metadata')),
-            array(), // FK check (doesn't exist)
+            [['Tables_in_test' => 'ost_ticket_hierarchy_metadata']],
+            [['Field' => 'ticket_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '']],
+            [['Tables_in_test' => 'ost_ticket_progress']],
+            [['Field' => 'parent_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '']],
+            [['Tables_in_test' => 'ost_ticket_hierarchy_metadata']],
+            [], // FK check (doesn't exist)
             true,    // FK creation on metadata
-            array(array('Tables_in_test' => 'ost_ticket_progress')),
-            array(), // FK check (doesn't exist)
+            [['Tables_in_test' => 'ost_ticket_progress']],
+            [], // FK check (doesn't exist)
             true     // FK creation on progress
-        ));
+        ]);
 
-        $this->plugin->testInitializeDatabase();
+        $this->databaseService->initialize();
 
         $queries = get_test_db_queries();
 
@@ -417,36 +395,36 @@ class DatabaseMigrationTest extends TestCase
     public function testInitializationIsIdempotent()
     {
         // Mock: All objects already exist
-        $this->mockMultipleDbQueries(array(
+        $this->mockMultipleDbQueries([
             // SHOW TABLES: metadata exists
-            array(array('Tables_in_test' => 'ost_ticket_hierarchy_metadata')),
+            [['Tables_in_test' => 'ost_ticket_hierarchy_metadata']],
             // SHOW TABLES: progress exists
-            array(array('Tables_in_test' => 'ost_ticket_progress')),
+            [['Tables_in_test' => 'ost_ticket_progress']],
             // SHOW COLUMNS: version exists
-            array(array('Field' => 'version', 'Type' => 'int(11)', 'Null' => 'YES', 'Key' => '', 'Default' => '0', 'Extra' => '')),
+            [['Field' => 'version', 'Type' => 'int(11)', 'Null' => 'YES', 'Key' => '', 'Default' => '0', 'Extra' => '']],
             // SHOW INDEX: idx_ticket_pid exists
-            array(array('Key_name' => 'idx_ticket_pid')),
+            [['Key_name' => 'idx_ticket_pid']],
             // SHOW INDEX: idx_ticket_hierarchy exists
-            array(array('Key_name' => 'idx_ticket_hierarchy')),
+            [['Key_name' => 'idx_ticket_hierarchy']],
             // Check metadata table for migration (exists)
-            array(array('Tables_in_test' => 'ost_ticket_hierarchy_metadata')),
+            [['Tables_in_test' => 'ost_ticket_hierarchy_metadata']],
             // Check if metadata.ticket_id is unsigned (YES - already migrated)
-            array(array('Field' => 'ticket_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '')),
+            [['Field' => 'ticket_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '']],
             // Check progress table for migration (exists)
-            array(array('Tables_in_test' => 'ost_ticket_progress')),
+            [['Tables_in_test' => 'ost_ticket_progress']],
             // Check if progress.parent_id is unsigned (YES - already migrated)
-            array(array('Field' => 'parent_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '')),
+            [['Field' => 'parent_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '']],
             // Check metadata table for FK (exists)
-            array(array('Tables_in_test' => 'ost_ticket_hierarchy_metadata')),
+            [['Tables_in_test' => 'ost_ticket_hierarchy_metadata']],
             // Check if FK exists (YES - already exists)
-            array(array('CONSTRAINT_NAME' => 'fk_hierarchy_ticket')),
+            [['CONSTRAINT_NAME' => 'fk_hierarchy_ticket']],
             // Check progress table for FK (exists)
-            array(array('Tables_in_test' => 'ost_ticket_progress')),
+            [['Tables_in_test' => 'ost_ticket_progress']],
             // Check if FK exists (YES - already exists)
-            array(array('CONSTRAINT_NAME' => 'fk_progress_ticket'))
-        ));
+            [['CONSTRAINT_NAME' => 'fk_progress_ticket']]
+        ]);
 
-        $this->plugin->testInitializeDatabase();
+        $this->databaseService->initialize();
 
         $queries = get_test_db_queries();
 
@@ -475,17 +453,17 @@ class DatabaseMigrationTest extends TestCase
     public function testPartialInstallationResumesCorrectly()
     {
         // Mock: Only metadata table exists, everything else is missing
-        $this->mockMultipleDbQueries(array(
+        $this->mockMultipleDbQueries([
             // metadata EXISTS
-            array(array('Tables_in_test' => 'ost_ticket_hierarchy_metadata')),
+            [['Tables_in_test' => 'ost_ticket_hierarchy_metadata']],
             // progress DOESN'T exist
-            array(),
+            [],
             // version DOESN'T exist
-            array(),
+            [],
             // idx_ticket_pid DOESN'T exist
-            array(),
+            [],
             // idx_ticket_hierarchy DOESN'T exist
-            array(),
+            [],
             // CREATE TABLE progress (SUCCESS)
             true,
             // ADD COLUMN version (SUCCESS)
@@ -495,23 +473,23 @@ class DatabaseMigrationTest extends TestCase
             // CREATE INDEX hierarchy (SUCCESS)
             true,
             // Check metadata for migration
-            array(array('Tables_in_test' => 'ost_ticket_hierarchy_metadata')),
+            [['Tables_in_test' => 'ost_ticket_hierarchy_metadata']],
             // Check if unsigned (already is)
-            array(array('Field' => 'ticket_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '')),
+            [['Field' => 'ticket_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '']],
             // Check progress for migration (just created)
-            array(array('Tables_in_test' => 'ost_ticket_progress')),
+            [['Tables_in_test' => 'ost_ticket_progress']],
             // Check if unsigned (just created as unsigned)
-            array(array('Field' => 'parent_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '')),
+            [['Field' => 'parent_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '']],
             // FK checks
-            array(array('Tables_in_test' => 'ost_ticket_hierarchy_metadata')),
-            array(), // FK doesn't exist
+            [['Tables_in_test' => 'ost_ticket_hierarchy_metadata']],
+            [], // FK doesn't exist
             true,    // FK creation
-            array(array('Tables_in_test' => 'ost_ticket_progress')),
-            array(), // FK doesn't exist
+            [['Tables_in_test' => 'ost_ticket_progress']],
+            [], // FK doesn't exist
             true     // FK creation
-        ));
+        ]);
 
-        $this->plugin->testInitializeDatabase();
+        $this->databaseService->initialize();
 
         $queries = get_test_db_queries();
 
@@ -542,33 +520,33 @@ class DatabaseMigrationTest extends TestCase
     public function testExistingTablesAreMigratedToUnsigned()
     {
         // Mock: Tables exist but columns are NOT unsigned (old installation)
-        $this->mockMultipleDbQueries(array(
+        $this->mockMultipleDbQueries([
             // All objects exist (checks)
-            array(array('Tables_in_test' => 'ost_ticket_hierarchy_metadata')),
-            array(array('Tables_in_test' => 'ost_ticket_progress')),
-            array(array('Field' => 'version', 'Type' => 'int(11)', 'Null' => 'YES', 'Key' => '', 'Default' => '0', 'Extra' => '')),
-            array(array('Key_name' => 'idx_ticket_pid')),
-            array(array('Key_name' => 'idx_ticket_hierarchy')),
+            [['Tables_in_test' => 'ost_ticket_hierarchy_metadata']],
+            [['Tables_in_test' => 'ost_ticket_progress']],
+            [['Field' => 'version', 'Type' => 'int(11)', 'Null' => 'YES', 'Key' => '', 'Default' => '0', 'Extra' => '']],
+            [['Key_name' => 'idx_ticket_pid']],
+            [['Key_name' => 'idx_ticket_hierarchy']],
             // No creation queries (all exist)
             // Migration checks
-            array(array('Tables_in_test' => 'ost_ticket_hierarchy_metadata')),
+            [['Tables_in_test' => 'ost_ticket_hierarchy_metadata']],
             // Check if unsigned (NO - needs migration)
-            array(array('Field' => 'ticket_id', 'Type' => 'int(11)', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '')), // NOT unsigned
+            [['Field' => 'ticket_id', 'Type' => 'int(11)', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '']], // NOT unsigned
             // MIGRATE to unsigned (SUCCESS)
             true,
-            array(array('Tables_in_test' => 'ost_ticket_progress')),
+            [['Tables_in_test' => 'ost_ticket_progress']],
             // Check if unsigned (NO - needs migration)
-            array(array('Field' => 'parent_id', 'Type' => 'int(11)', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '')), // NOT unsigned
+            [['Field' => 'parent_id', 'Type' => 'int(11)', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '']], // NOT unsigned
             // MIGRATE to unsigned (SUCCESS)
             true,
             // FK checks
-            array(array('Tables_in_test' => 'ost_ticket_hierarchy_metadata')),
-            array(array('CONSTRAINT_NAME' => 'fk_hierarchy_ticket')), // FK exists
-            array(array('Tables_in_test' => 'ost_ticket_progress')),
-            array(array('CONSTRAINT_NAME' => 'fk_progress_ticket')) // FK exists
-        ));
+            [['Tables_in_test' => 'ost_ticket_hierarchy_metadata']],
+            [['CONSTRAINT_NAME' => 'fk_hierarchy_ticket']], // FK exists
+            [['Tables_in_test' => 'ost_ticket_progress']],
+            [['CONSTRAINT_NAME' => 'fk_progress_ticket']] // FK exists
+        ]);
 
-        $this->plugin->testInitializeDatabase();
+        $this->databaseService->initialize();
 
         $queries = get_test_db_queries();
 
@@ -585,25 +563,25 @@ class DatabaseMigrationTest extends TestCase
     public function testMigrationSkippedIfAlreadyUnsigned()
     {
         // Mock: Tables exist with UNSIGNED columns (already migrated)
-        $this->mockMultipleDbQueries(array(
-            array(array('Tables_in_test' => 'ost_ticket_hierarchy_metadata')),
-            array(array('Tables_in_test' => 'ost_ticket_progress')),
-            array(array('Field' => 'version', 'Type' => 'int(11)', 'Null' => 'YES', 'Key' => '', 'Default' => '0', 'Extra' => '')),
-            array(array('Key_name' => 'idx_ticket_pid')),
-            array(array('Key_name' => 'idx_ticket_hierarchy')),
+        $this->mockMultipleDbQueries([
+            [['Tables_in_test' => 'ost_ticket_hierarchy_metadata']],
+            [['Tables_in_test' => 'ost_ticket_progress']],
+            [['Field' => 'version', 'Type' => 'int(11)', 'Null' => 'YES', 'Key' => '', 'Default' => '0', 'Extra' => '']],
+            [['Key_name' => 'idx_ticket_pid']],
+            [['Key_name' => 'idx_ticket_hierarchy']],
             // Migration checks
-            array(array('Tables_in_test' => 'ost_ticket_hierarchy_metadata')),
-            array(array('Field' => 'ticket_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '')), // Already unsigned!
-            array(array('Tables_in_test' => 'ost_ticket_progress')),
-            array(array('Field' => 'parent_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '')), // Already unsigned!
+            [['Tables_in_test' => 'ost_ticket_hierarchy_metadata']],
+            [['Field' => 'ticket_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '']], // Already unsigned!
+            [['Tables_in_test' => 'ost_ticket_progress']],
+            [['Field' => 'parent_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '']], // Already unsigned!
             // FK checks
-            array(array('Tables_in_test' => 'ost_ticket_hierarchy_metadata')),
-            array(array('CONSTRAINT_NAME' => 'fk_hierarchy_ticket')),
-            array(array('Tables_in_test' => 'ost_ticket_progress')),
-            array(array('CONSTRAINT_NAME' => 'fk_progress_ticket'))
-        ));
+            [['Tables_in_test' => 'ost_ticket_hierarchy_metadata']],
+            [['CONSTRAINT_NAME' => 'fk_hierarchy_ticket']],
+            [['Tables_in_test' => 'ost_ticket_progress']],
+            [['CONSTRAINT_NAME' => 'fk_progress_ticket']]
+        ]);
 
-        $this->plugin->testInitializeDatabase();
+        $this->databaseService->initialize();
 
         $queries = get_test_db_queries();
 
@@ -627,31 +605,31 @@ class DatabaseMigrationTest extends TestCase
     public function testForeignKeyConstraintFailureIsHandledGracefully()
     {
         // Mock: FK creation fails (non-critical error)
-        $this->mockMultipleDbQueries(array(
-            array(), // metadata doesn't exist
-            array(), // progress doesn't exist
-            array(), // version doesn't exist
-            array(), // idx_ticket_pid doesn't exist
-            array(), // idx_ticket_hierarchy doesn't exist
+        $this->mockMultipleDbQueries([
+            [], // metadata doesn't exist
+            [], // progress doesn't exist
+            [], // version doesn't exist
+            [], // idx_ticket_pid doesn't exist
+            [], // idx_ticket_hierarchy doesn't exist
             true,    // CREATE TABLE metadata
             true,    // CREATE TABLE progress
             true,    // ADD COLUMN version
             true,    // CREATE INDEX pid
             true,    // CREATE INDEX hierarchy
-            array(array('Tables_in_test' => 'ost_ticket_hierarchy_metadata')),
-            array(array('Field' => 'ticket_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '')),
-            array(array('Tables_in_test' => 'ost_ticket_progress')),
-            array(array('Field' => 'parent_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '')),
-            array(array('Tables_in_test' => 'ost_ticket_hierarchy_metadata')),
-            array(), // FK check (doesn't exist)
+            [['Tables_in_test' => 'ost_ticket_hierarchy_metadata']],
+            [['Field' => 'ticket_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '']],
+            [['Tables_in_test' => 'ost_ticket_progress']],
+            [['Field' => 'parent_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '']],
+            [['Tables_in_test' => 'ost_ticket_hierarchy_metadata']],
+            [], // FK check (doesn't exist)
             false,   // FK creation FAILS (non-critical)
-            array(array('Tables_in_test' => 'ost_ticket_progress')),
-            array(), // FK check (doesn't exist)
+            [['Tables_in_test' => 'ost_ticket_progress']],
+            [], // FK check (doesn't exist)
             false    // FK creation FAILS (non-critical)
-        ));
+        ]);
 
         // Should NOT throw exception (FK failure is non-critical)
-        $this->plugin->testInitializeDatabase();
+        $this->databaseService->initialize();
 
         $queries = get_test_db_queries();
 
@@ -678,25 +656,25 @@ class DatabaseMigrationTest extends TestCase
     public function testTableCreationFailureIsLogged()
     {
         // Mock: Table creation fails
-        $this->mockMultipleDbQueries(array(
-            array(), // metadata doesn't exist
-            array(), // progress doesn't exist
-            array(), // version doesn't exist
-            array(), // idx_ticket_pid doesn't exist
-            array(), // idx_ticket_hierarchy doesn't exist
+        $this->mockMultipleDbQueries([
+            [], // metadata doesn't exist
+            [], // progress doesn't exist
+            [], // version doesn't exist
+            [], // idx_ticket_pid doesn't exist
+            [], // idx_ticket_hierarchy doesn't exist
             false,   // CREATE TABLE metadata FAILS
             false,   // CREATE TABLE progress FAILS
             false,   // ADD COLUMN version FAILS
             false,   // CREATE INDEX pid FAILS
             false,   // CREATE INDEX hierarchy FAILS
-            array(), // Check metadata for migration (doesn't exist - creation failed)
-            array(), // Check progress for migration (doesn't exist - creation failed)
-            array(), // Check metadata for FK (doesn't exist)
-            array(), // Check progress for FK (doesn't exist)
-        ));
+            [], // Check metadata for migration (doesn't exist - creation failed)
+            [], // Check progress for migration (doesn't exist - creation failed)
+            [], // Check metadata for FK (doesn't exist)
+            [], // Check progress for FK (doesn't exist)
+        ]);
 
         // Should NOT throw exception (errors are logged, not thrown)
-        $this->plugin->testInitializeDatabase();
+        $this->databaseService->initialize();
 
         $queries = get_test_db_queries();
 
@@ -721,30 +699,30 @@ class DatabaseMigrationTest extends TestCase
      */
     public function testDatabaseObjectsCreatedInCorrectOrder()
     {
-        $this->mockMultipleDbQueries(array(
-            array(), // Check metadata
-            array(), // Check progress
-            array(), // Check version
-            array(), // Check idx_ticket_pid
-            array(), // Check idx_ticket_hierarchy
+        $this->mockMultipleDbQueries([
+            [], // Check metadata
+            [], // Check progress
+            [], // Check version
+            [], // Check idx_ticket_pid
+            [], // Check idx_ticket_hierarchy
             true,    // CREATE TABLE metadata
             true,    // CREATE TABLE progress
             true,    // ADD COLUMN version
             true,    // CREATE INDEX pid
             true,    // CREATE INDEX hierarchy
-            array(array('Tables_in_test' => 'ost_ticket_hierarchy_metadata')),
-            array(array('Field' => 'ticket_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '')),
-            array(array('Tables_in_test' => 'ost_ticket_progress')),
-            array(array('Field' => 'parent_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '')),
-            array(array('Tables_in_test' => 'ost_ticket_hierarchy_metadata')),
-            array(), // FK check
+            [['Tables_in_test' => 'ost_ticket_hierarchy_metadata']],
+            [['Field' => 'ticket_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '']],
+            [['Tables_in_test' => 'ost_ticket_progress']],
+            [['Field' => 'parent_id', 'Type' => 'int(11) unsigned', 'Null' => 'NO', 'Key' => 'PRI', 'Default' => null, 'Extra' => '']],
+            [['Tables_in_test' => 'ost_ticket_hierarchy_metadata']],
+            [], // FK check
             true,    // FK creation
-            array(array('Tables_in_test' => 'ost_ticket_progress')),
-            array(), // FK check
+            [['Tables_in_test' => 'ost_ticket_progress']],
+            [], // FK check
             true     // FK creation
-        ));
+        ]);
 
-        $this->plugin->testInitializeDatabase();
+        $this->databaseService->initialize();
 
         $queries = get_test_db_queries();
         $queryTexts = array_map(function($q) { return $q['query']; }, $queries);

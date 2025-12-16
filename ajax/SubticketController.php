@@ -55,10 +55,10 @@ class SubticketController {
 
         // Initialize rate limit data if not set
         if (!isset($_SESSION[$key])) {
-            $_SESSION[$key] = array(
-                'requests' => array(),
+            $_SESSION[$key] = [
+                'requests' => [],
                 'blocked_until' => 0
-            );
+            ];
         }
 
         // Check if user is currently blocked
@@ -130,7 +130,7 @@ class SubticketController {
 
         // Build response
         if (empty($children)) {
-            return $this->successResponse('No children found', array());
+            return $this->successResponse('No children found', []);
         }
 
         return $this->successResponse(
@@ -426,12 +426,12 @@ class SubticketController {
      * @param array $data Optional response data
      * @return array JSON response structure
      */
-    private function successResponse($message, $data = array()) {
-        return array(
+    private function successResponse($message, $data = []) {
+        return [
             'success' => true,
             'message' => $message,
             'data' => $data
-        );
+        ];
     }
 
     /**
@@ -441,12 +441,12 @@ class SubticketController {
      * @param array $data Optional error data
      * @return array JSON response structure
      */
-    private function errorResponse($message, $data = array()) {
-        return array(
+    private function errorResponse($message, $data = []) {
+        return [
             'success' => false,
             'message' => $message,
             'data' => $data
-        );
+        ];
     }
 
     /**
@@ -491,10 +491,10 @@ class SubticketController {
             $parentTicket = $this->getTicketById($parentTicketId);
             if (!$parentTicket) {
                 subticket_log('Parent ticket not found', 'ID: ' . $parentTicketId);
-                return array(
+                return [
                     'success' => false,
                     'error' => 'Parent ticket not found'
-                );
+                ];
             }
             subticket_log('Parent ticket found', 'Number: ' . $parentTicket->getNumber());
 
@@ -503,10 +503,10 @@ class SubticketController {
             $thisstaff = $this->getCurrentStaff();
             if (!$thisstaff) {
                 subticket_log('Staff not authenticated');
-                return array(
+                return [
                     'success' => false,
                     'error' => 'Staff member not authenticated'
-                );
+                ];
             }
             subticket_log('Staff found', 'Name: ' . $thisstaff->getName());
 
@@ -521,7 +521,7 @@ class SubticketController {
                 subticket_log('Using default topic', 'Parent has no topic, default: ' . $topicId);
             }
 
-            $vars = array(
+            $vars = [
                 // User information (inherit from parent ticket)
                 'name'     => $parentTicket->getName(),
                 'email'    => $parentTicket->getEmail(),
@@ -554,10 +554,10 @@ class SubticketController {
 
                 // Note about parent relationship
                 'note'     => sprintf('Created as subticket of #%s', $parentTicket->getNumber())
-            );
+            ];
 
             // Initialize errors array (passed by reference to Ticket::create)
-            $errors = array();
+            $errors = [];
 
             // Create the ticket using osTicket's API
             // Parameters: $vars, &$errors, $origin, $autorespond, $alertstaff
@@ -573,28 +573,28 @@ class SubticketController {
             // Check if ticket was created successfully
             if ($ticket && is_object($ticket)) {
                 subticket_log('Ticket created successfully', 'Number: ' . $ticket->getNumber());
-                return array(
+                return [
                     'success' => true,
                     'ticket_id' => $ticket->getId(),
                     'ticket_number' => $ticket->getNumber()
-                );
+                ];
             }
 
             // Ticket creation failed - return error details
             $errorMsg = !empty($errors) ? implode(', ', $errors) : 'Unknown error creating ticket';
             subticket_log('Ticket creation FAILED', $errorMsg);
-            return array(
+            return [
                 'success' => false,
                 'error' => $errorMsg
-            );
+            ];
 
         } catch (Exception $e) {
             // Handle any exceptions during ticket creation
             subticket_log('EXCEPTION', $e->getMessage());
-            return array(
+            return [
                 'success' => false,
                 'error' => 'Exception: ' . $e->getMessage()
-            );
+            ];
         }
     }
 
@@ -754,24 +754,24 @@ class SubticketController {
         }
 
         // Build result array
-        $data = array();
+        $data = [];
         while ($row = db_fetch_array($result)) {
             $ticketId = (int)$row['ticket_id'];
             $childCount = (int)$row['child_count'];
 
-            $data[$ticketId] = array(
+            $data[$ticketId] = [
                 'is_parent' => $childCount > 0,
                 'child_count' => $childCount
-            );
+            ];
         }
 
         // Fill in missing tickets (tickets that weren't found in DB)
         foreach ($ids as $id) {
             if (!isset($data[$id])) {
-                $data[$id] = array(
+                $data[$id] = [
                     'is_parent' => false,
                     'child_count' => 0
-                );
+                ];
             }
         }
 

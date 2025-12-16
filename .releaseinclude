@@ -19,7 +19,8 @@ src/Hierarchy/HierarchyService.php
 src/Signal/TicketEventHandler.php
 src/UI/PanelRenderer.php
 
-# Composer Autoload
+# Vendor (Runtime Dependencies Only - No Dev Dependencies!)
+# Note: This plugin has no external runtime dependencies (only PSR-4 autoloading)
 vendor/autoload.php
 vendor/composer/
 

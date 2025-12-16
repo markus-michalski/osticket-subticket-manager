@@ -19,11 +19,23 @@
      */
     var SubticketPanel = {
         /**
+         * Flag to prevent multiple initializations
+         */
+        initialized: false,
+
+        /**
          * Initialize panel - attach event handlers
          */
         init: function() {
-            // Attach click handlers to all action buttons
-            $(document).on('click', '.subticket-action', this.handleButtonClick.bind(this));
+            // Prevent multiple initializations (script may be loaded multiple times)
+            if (this.initialized) {
+                return;
+            }
+            this.initialized = true;
+
+            // Remove any existing handlers first, then attach new ones
+            // This prevents duplicate handlers if init() is called multiple times
+            $(document).off('click.subticket').on('click.subticket', '.subticket-action', this.handleButtonClick.bind(this));
         },
 
         /**
@@ -32,14 +44,26 @@
          * @param {Event} e Click event
          */
         handleButtonClick: function(e) {
+            // Prevent default behavior and stop propagation
             e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
 
             var $btn = $(e.currentTarget);
+
+            // Prevent double-clicks by checking if already processing
+            if ($btn.data('processing')) {
+                console.log('[Subticket] Ignoring click - already processing');
+                return false;
+            }
+
             var action = $btn.data('action');
             var ticketId = $btn.data('ticket-id');
             var childId = $btn.data('child-id');
             var $panel = $btn.closest('.subticket-panel');
             var csrfToken = $panel.data('csrf-token');
+
+            console.log('[Subticket] Button click:', action, 'ticketId:', ticketId);
 
             // Dispatch to appropriate handler
             switch(action) {
@@ -59,6 +83,8 @@
                     this.showCreateSubticketDialog(ticketId, csrfToken);
                     break;
             }
+
+            return false;
         },
 
         /**
@@ -86,6 +112,11 @@
         },
 
         /**
+         * Flag to prevent concurrent AJAX requests
+         */
+        isLinking: false,
+
+        /**
          * Link current ticket to parent via AJAX
          *
          * @param {number} childId Current ticket ID (becomes child)
@@ -93,6 +124,17 @@
          * @param {string} csrfToken CSRF token
          */
         linkToParent: function(childId, parentId, csrfToken) {
+            var self = this;
+
+            // Prevent concurrent requests
+            if (this.isLinking) {
+                console.log('[Subticket] Link request already in progress, ignoring');
+                return;
+            }
+            this.isLinking = true;
+
+            console.log('[Subticket] linkToParent called:', childId, '->', parentId);
+
             // SECURITY: Use filter() to prevent selector injection
             var $panel = $('.subticket-panel').filter(function() {
                 return $(this).data('ticket-id') == childId;
@@ -110,19 +152,23 @@
                 },
                 dataType: 'json',
                 success: function(response) {
-                    this.hideLoading($panel);
+                    console.log('[Subticket] Link response:', response);
+                    self.isLinking = false;
+                    self.hideLoading($panel);
 
                     if (response.success) {
-                        this.showSuccess('Successfully linked to parent ticket #' + parentId);
-                        this.reloadPanel(childId);
+                        self.showSuccess('Successfully linked to parent ticket #' + parentId);
+                        self.reloadPanel(childId);
                     } else {
-                        this.showError(response.message || 'Failed to link to parent');
+                        self.showError(response.message || 'Failed to link to parent');
                     }
-                }.bind(this),
+                },
                 error: function(xhr, status, error) {
-                    this.hideLoading($panel);
-                    this.showError('Server error: ' + error);
-                }.bind(this)
+                    console.error('[Subticket] Link error:', status, error);
+                    self.isLinking = false;
+                    self.hideLoading($panel);
+                    self.showError('Server error: ' + error);
+                }
             });
         },
 

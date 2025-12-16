@@ -203,6 +203,8 @@ class SubticketController {
      *   }
      */
     public function linkExistingTicket($childId, $parentId, $csrfToken = null) {
+        subticket_log('linkExistingTicket called', "childId=$childId, parentId=$parentId");
+
         // Check rate limit (DoS protection)
         if ($rateLimitError = $this->checkRateLimit()) {
             return $rateLimitError;
@@ -210,23 +212,28 @@ class SubticketController {
 
         // 1. Validate child ticket ID
         if (!$this->isValidPositiveInteger($childId)) {
+            subticket_log('Invalid child ticket ID', "childId=$childId");
             return $this->errorResponse('Invalid child ticket ID');
         }
 
         // 2. Validate parent ticket ID or number
         if (!$this->isValidPositiveInteger($parentId)) {
+            subticket_log('Invalid parent ticket ID/number', "parentId=$parentId");
             return $this->errorResponse('Invalid parent ticket ID/number');
         }
 
         // 3. Validate CSRF token and permissions
         $securityCheck = $this->validateSecurityRequirements($csrfToken);
         if ($securityCheck !== true) {
+            subticket_log('Security check failed');
             return $securityCheck; // Return error response
         }
 
-        // 4. SECURITY: Validate staff has access to child ticket
+        // 4. SECURITY: Validate staff has access to child ticket (current ticket)
+        subticket_log('Checking access to child ticket', "childId=$childId");
         $childAccess = $this->validateTicketAccess((int)$childId);
         if ($childAccess !== true) {
+            subticket_log('Access denied to child ticket', "childId=$childId");
             return $childAccess;
         }
 
@@ -234,12 +241,15 @@ class SubticketController {
         // User provides ticket NUMBER (visible), not internal ID
         // Plugin handles: number-to-ID conversion, self-linking check,
         // ticket existence, circular dependency
+        subticket_log('Calling linkTicketByNumber', "childId=$childId, parentNumber=$parentId");
         $result = $this->plugin->linkTicketByNumber($childId, $parentId);
 
         // 6. Return response based on result
         if ($result) {
+            subticket_log('Link successful');
             return $this->successResponse('Tickets successfully linked');
         } else {
+            subticket_log('Link failed');
             return $this->errorResponse('Failed to link tickets');
         }
     }
@@ -389,6 +399,8 @@ class SubticketController {
     private function validateTicketAccess(int $ticketId) {
         global $thisstaff, $__test_ticket_access;
 
+        subticket_log('validateTicketAccess called', "ticketId=$ticketId");
+
         // In test environment, use mocked result
         if (isset($__test_ticket_access)) {
             return $__test_ticket_access === true ? true : $this->errorResponse('Access denied to this ticket');
@@ -397,25 +409,36 @@ class SubticketController {
         // Get ticket
         if (!class_exists('Ticket')) {
             // In test environment without Ticket class
+            subticket_log('Ticket class not found, allowing access');
             return true;
         }
 
         $ticket = \Ticket::lookup($ticketId);
         if (!$ticket) {
+            subticket_log('Ticket not found', "ticketId=$ticketId");
             return $this->errorResponse('Ticket not found');
         }
+
+        subticket_log('Ticket found', "ticketId=$ticketId, number=" . $ticket->getNumber() . ", deptId=" . $ticket->getDeptId());
 
         // Check department access
         if (!$thisstaff || !method_exists($thisstaff, 'canAccessDept')) {
             // Fallback for test environment
+            subticket_log('canAccessDept not available, allowing access');
             return true;
         }
 
-        if (!$thisstaff->canAccessDept($ticket->getDeptId())) {
-            subticket_log('SECURITY: Staff ' . $thisstaff->getId() . ' denied access to ticket ' . $ticketId);
+        $deptId = $ticket->getDeptId();
+        $isAdmin = method_exists($thisstaff, 'isAdmin') && $thisstaff->isAdmin();
+        $hasAccess = $isAdmin || $thisstaff->canAccessDept($deptId);
+        subticket_log('Department access check', "staffId=" . $thisstaff->getId() . ", deptId=$deptId, isAdmin=" . ($isAdmin ? 'true' : 'false') . ", hasAccess=" . ($hasAccess ? 'true' : 'false'));
+
+        if (!$hasAccess) {
+            subticket_log('SECURITY: Staff ' . $thisstaff->getId() . ' denied access to ticket ' . $ticketId . ' (dept ' . $deptId . ')');
             return $this->errorResponse('You do not have access to this ticket');
         }
 
+        subticket_log('Access granted', "ticketId=$ticketId");
         return true;
     }
 

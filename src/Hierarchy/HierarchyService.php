@@ -109,24 +109,43 @@ final class HierarchyService
     /**
      * Get ticket ID from ticket number
      *
+     * osTicket ticket numbers can be alphanumeric (e.g., "ABC-123-456")
+     * or purely numeric depending on the system configuration.
+     *
      * @param string|int $number Ticket number
      * @return int|null Ticket ID or null
      */
     public function getTicketIdByNumber($number): ?int
     {
-        if (!is_numeric($number) || $number < 1) {
+        // Validate: must be non-empty string or positive number
+        if (empty($number)) {
+            $this->log('getTicketIdByNumber: empty number provided');
             return null;
         }
 
+        // Convert to string and trim
+        $number = trim((string)$number);
+
+        if ($number === '') {
+            $this->log('getTicketIdByNumber: number is empty after trim');
+            return null;
+        }
+
+        // Escape as string (quoted) for SQL - ticket numbers can be alphanumeric
         $number_escaped = db_input($number);
-        $sql = "SELECT ticket_id FROM ost_ticket WHERE number = $number_escaped";
+        $sql = "SELECT ticket_id FROM ost_ticket WHERE number = '$number_escaped'";
+
+        $this->log('getTicketIdByNumber SQL', $sql);
+
         $result = db_query($sql);
 
         if ($result && db_num_rows($result) > 0) {
             $row = db_fetch_array($result);
+            $this->log('getTicketIdByNumber: found ticket', "number=$number, id=" . $row['ticket_id']);
             return (int)$row['ticket_id'];
         }
 
+        $this->log('getTicketIdByNumber: ticket not found', "number=$number");
         return null;
     }
 

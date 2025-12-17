@@ -34,9 +34,10 @@ class SubticketPluginConfig extends PluginConfig
     /**
      * Get configuration form options
      *
+     * @disregard P1013 (Parent class PluginConfig not available in IDE context)
      * @return array Configuration fields
      */
-    function getOptions()
+    function getOptions(): array
     {
         return [
             'max_depth' => new TextboxField([

@@ -137,7 +137,7 @@ final class TicketEventHandler
      * @param mixed $model The updated model
      * @param array<string, mixed> $changes Changed fields
      */
-    public function onTicketStatusChanged($model, array $changes = []): void
+    public function onTicketStatusChanged($model, ?array $changes = null): void
     {
         // TODO: Phase 4 Cycle 8 - implement auto-close logic
     }

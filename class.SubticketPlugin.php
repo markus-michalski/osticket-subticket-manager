@@ -333,10 +333,10 @@ class SubticketPlugin extends Plugin
      * @param mixed $model
      * @param array<string, mixed> $changes
      */
-    public function onTicketStatusChanged($model, array $changes = []): void
+    public function onTicketStatusChanged($model, ?array $changes = null): void
     {
         $this->ensureServicesInitialized();
-        $this->eventHandler->onTicketStatusChanged($model, $changes);
+        $this->eventHandler->onTicketStatusChanged($model, $changes ?? []);
     }
 
     // =========================================================================

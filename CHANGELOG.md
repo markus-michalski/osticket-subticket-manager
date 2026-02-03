@@ -16,6 +16,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Nothing yet
 
+## [2.0.2] - 2026-02-03
+
+### Changed
+- added test file to .gitignore
+- add @disregard annotation and return type for IDE compatibility
+
+### Fixed
+- accept null changes from Signal::send() in model.updated handler
+
 ## [2.0.1] - 2025-12-16
 
 ### Fixed

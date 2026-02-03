@@ -6,6 +6,7 @@
 /coverage/
 /junit.xml
 /testdox.html
+.phpunit.result.cache
 
 # IDE
 /.idea/

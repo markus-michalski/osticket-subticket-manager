@@ -32,8 +32,21 @@ if (!$thisstaff || !$thisstaff->isStaff()) {
     Http::response(403, 'Access denied');
 }
 
+// Resolve plugin directory dynamically -- fixes hardcoded 'subticket-manager' dir name
+// (Issue #3: glob finds the plugin regardless of the installed directory name)
+$_pluginMatches = glob(INCLUDE_DIR . 'plugins/*/class.SubticketPlugin.php');
+if ($_pluginMatches === false || count($_pluginMatches) === 0) {
+    Http::response(500, 'SubticketPlugin not found');
+}
+if (count($_pluginMatches) > 1) {
+    error_log('[SUBTICKET-AJAX] Multiple SubticketPlugin installations detected: ' . implode(', ', $_pluginMatches));
+    Http::response(500, 'Multiple SubticketPlugin installations detected');
+}
+$pluginDir = dirname($_pluginMatches[0]);
+unset($_pluginMatches);
+
 // Load controller
-$controllerFile = INCLUDE_DIR . 'plugins/subticket-manager/ajax/SubticketController.php';
+$controllerFile = $pluginDir . '/ajax/SubticketController.php';
 if (!file_exists($controllerFile)) {
     Http::response(500, 'Controller not found');
 }
@@ -41,8 +54,8 @@ if (!file_exists($controllerFile)) {
 require_once($controllerFile);
 
 // Get plugin instance with info from plugin.php
-$pluginFile = INCLUDE_DIR . 'plugins/subticket-manager/class.SubticketPlugin.php';
-$pluginInfoFile = INCLUDE_DIR . 'plugins/subticket-manager/plugin.php';
+$pluginFile = $pluginDir . '/class.SubticketPlugin.php';
+$pluginInfoFile = $pluginDir . '/plugin.php';
 
 if (!class_exists('SubticketPlugin')) {
     require_once($pluginFile);
@@ -65,11 +78,11 @@ try {
             // GET /scp/ajax-subticket.php?action=version
             // Debug endpoint to verify which version is loaded
             $version = $plugin->getVersion();
-            $pluginFile = INCLUDE_DIR . 'plugins/subticket-manager/class.SubticketPlugin.php';
             $handlerFile = __FILE__;
 
             $result = array(
                 'plugin_version' => $version,
+                'plugin_dir' => $pluginDir,
                 'plugin_file' => $pluginFile,
                 'plugin_file_exists' => file_exists($pluginFile),
                 'plugin_file_size' => file_exists($pluginFile) ? filesize($pluginFile) : 0,

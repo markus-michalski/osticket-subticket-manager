@@ -13,8 +13,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Nothing yet
 
+### Deprecated
+- Nothing yet
+
+### Removed
+- Nothing yet
+
 ### Fixed
 - Nothing yet
+
+### Security
+- Nothing yet
+
+## [2.0.3] - 2026-05-26
+
+### Changed
+- add git workflow files to .gitignore
+- untrack .phpunit.result.cache (already in .gitignore)
+
+### Fixed
+- resolve plugin directory dynamically instead of hardcoded path (#4)
 
 ## [2.0.2] - 2026-02-03
 
@@ -69,3 +87,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Make annotate() method static in QueueColumnAnnotation mock
 - Add QueueColumnAnnotation mock for PHPUnit tests
 - Add missing Queue mock for PHPUnit tests
+
+[2.0.3]: https://github.com/markus-michalski/osticket-subticket-manager/releases/tag/v2.0.3

@@ -2,7 +2,7 @@
 
 return array(
     'id' =>             'subticket-manager',
-    'version' =>        '2.0.2',
+    'version' =>        '2.0.3',
     'name' =>           'Subticket Manager',
     'author' =>         'Markus Michalski',
     'description' =>    'Subticket hierarchy management with admin interface and AJAX backend (Phase 3)',

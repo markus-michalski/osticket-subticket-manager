@@ -114,7 +114,10 @@ final class TicketEventHandler
             $parentId_escaped = db_input($parentId);
             $childId_escaped = db_input($childId);
 
-            $sql = "UPDATE ost_ticket SET ticket_pid = $parentId_escaped WHERE ticket_id = $childId_escaped";
+            // Respect the table prefix: hardcoded names like 'ost_ticket'
+            // fail on installations without one.
+            $tblTicket = TABLE_PREFIX . 'ticket';
+            $sql = "UPDATE {$tblTicket} SET ticket_pid = $parentId_escaped WHERE ticket_id = $childId_escaped";
             $result = db_query($sql);
 
             if ($result) {

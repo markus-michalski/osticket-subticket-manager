@@ -535,7 +535,10 @@ class SubticketPlugin extends Plugin
         }
 
         if (function_exists('db_query')) {
-            $result = db_query("SHOW COLUMNS FROM `ost_ticket` LIKE 'ticket_pid'");
+            // Respect the table prefix, otherwise isCompatible() reports a
+            // false negative on installations without one.
+            $tblTicket = TABLE_PREFIX . 'ticket';
+            $result = db_query("SHOW COLUMNS FROM `{$tblTicket}` LIKE 'ticket_pid'");
             if (db_num_rows($result) == 0) {
                 subticket_log('Required column ticket_pid not found');
                 return false;

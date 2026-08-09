@@ -30,6 +30,14 @@ final class HierarchyService
      */
     public function getChildren(int $parentId): array
     {
+        // osTicket allows a configurable table prefix. Hardcoded names like
+        // 'ost_ticket' fail on installations without one: db_query() returns
+        // false, db_num_rows() returns 0, and that surfaces to the user as a
+        // misleading "Ticket not found".
+        $tblTicket = TABLE_PREFIX . 'ticket';
+        $tblCdata  = TABLE_PREFIX . 'ticket__cdata';
+        $tblStatus = TABLE_PREFIX . 'ticket_status';
+
         $this->log('getChildren() called', "parentId: $parentId");
 
         if ($parentId < 1) {
@@ -43,9 +51,9 @@ final class HierarchyService
                        cdata.subject as subject,
                        s.name as status,
                        t.created
-                FROM ost_ticket t
-                LEFT JOIN ost_ticket__cdata cdata ON t.ticket_id = cdata.ticket_id
-                LEFT JOIN ost_ticket_status s ON t.status_id = s.id
+                FROM {$tblTicket} t
+                LEFT JOIN {$tblCdata} cdata ON t.ticket_id = cdata.ticket_id
+                LEFT JOIN {$tblStatus} s ON t.status_id = s.id
                 WHERE t.ticket_pid = $parentId_escaped
                 ORDER BY t.created ASC";
 
@@ -85,6 +93,14 @@ final class HierarchyService
      */
     public function getParent(int $childId): ?array
     {
+        // osTicket allows a configurable table prefix. Hardcoded names like
+        // 'ost_ticket' fail on installations without one: db_query() returns
+        // false, db_num_rows() returns 0, and that surfaces to the user as a
+        // misleading "Ticket not found".
+        $tblTicket = TABLE_PREFIX . 'ticket';
+        $tblCdata  = TABLE_PREFIX . 'ticket__cdata';
+        $tblStatus = TABLE_PREFIX . 'ticket_status';
+
         if ($childId < 1) {
             return null;
         }
@@ -94,10 +110,10 @@ final class HierarchyService
         $sql = "SELECT p.ticket_id, p.number,
                        cdata.subject as subject,
                        s.name as status
-                FROM ost_ticket t
-                INNER JOIN ost_ticket p ON t.ticket_pid = p.ticket_id
-                LEFT JOIN ost_ticket__cdata cdata ON p.ticket_id = cdata.ticket_id
-                LEFT JOIN ost_ticket_status s ON p.status_id = s.id
+                FROM {$tblTicket} t
+                INNER JOIN {$tblTicket} p ON t.ticket_pid = p.ticket_id
+                LEFT JOIN {$tblCdata} cdata ON p.ticket_id = cdata.ticket_id
+                LEFT JOIN {$tblStatus} s ON p.status_id = s.id
                 WHERE t.ticket_id = $childId_escaped";
 
         $result = db_query($sql);
@@ -117,6 +133,9 @@ final class HierarchyService
      */
     public function getTicketIdByNumber($number): ?int
     {
+        // Respect the table prefix - see the comment in getChildren().
+        $tblTicket = TABLE_PREFIX . 'ticket';
+
         // Validate: must be non-empty string or positive number
         if (empty($number)) {
             $this->log('getTicketIdByNumber: empty number provided');
@@ -133,7 +152,7 @@ final class HierarchyService
 
         // Escape as string (quoted) for SQL - ticket numbers can be alphanumeric
         $number_escaped = db_input($number);
-        $sql = "SELECT ticket_id FROM ost_ticket WHERE number = '$number_escaped'";
+        $sql = "SELECT ticket_id FROM {$tblTicket} WHERE number = '$number_escaped'";
 
         $this->log('getTicketIdByNumber SQL', $sql);
 
@@ -179,6 +198,9 @@ final class HierarchyService
      */
     public function linkTicket(int $childId, int $parentId): bool
     {
+        // Respect the table prefix - see the comment in getChildren().
+        $tblTicket = TABLE_PREFIX . 'ticket';
+
         // Validate inputs
         if ($childId < 1) {
             error_log('[SUBTICKET-PLUGIN] linkTicket failed: Invalid child ID');
@@ -199,8 +221,8 @@ final class HierarchyService
         $childId_escaped = db_input($childId);
         $parentId_escaped = db_input($parentId);
 
-        $child = db_query("SELECT ticket_id FROM ost_ticket WHERE ticket_id = $childId_escaped");
-        $parent = db_query("SELECT ticket_id FROM ost_ticket WHERE ticket_id = $parentId_escaped");
+        $child = db_query("SELECT ticket_id FROM {$tblTicket} WHERE ticket_id = $childId_escaped");
+        $parent = db_query("SELECT ticket_id FROM {$tblTicket} WHERE ticket_id = $parentId_escaped");
 
         if (!db_num_rows($child) || !db_num_rows($parent)) {
             error_log("[SUBTICKET-PLUGIN] linkTicket failed: Ticket not found (child: $childId, parent: $parentId)");
@@ -214,7 +236,7 @@ final class HierarchyService
         }
 
         // Update ticket_pid
-        $sql = "UPDATE ost_ticket SET ticket_pid = $parentId_escaped WHERE ticket_id = $childId_escaped";
+        $sql = "UPDATE {$tblTicket} SET ticket_pid = $parentId_escaped WHERE ticket_id = $childId_escaped";
         $result = db_query($sql);
 
         if ($result) {
@@ -233,13 +255,16 @@ final class HierarchyService
      */
     public function unlinkTicket(int $childId): bool
     {
+        // Respect the table prefix - see the comment in getChildren().
+        $tblTicket = TABLE_PREFIX . 'ticket';
+
         if ($childId < 1) {
             error_log('[SUBTICKET-PLUGIN] unlinkTicket failed: Invalid child ID');
             return false;
         }
 
         $childId_escaped = db_input($childId);
-        $sql = "UPDATE ost_ticket SET ticket_pid = NULL WHERE ticket_id = $childId_escaped";
+        $sql = "UPDATE {$tblTicket} SET ticket_pid = NULL WHERE ticket_id = $childId_escaped";
         $result = db_query($sql);
 
         if ($result) {
@@ -259,11 +284,14 @@ final class HierarchyService
      */
     public function isDescendant(int $ticketId, int $ancestorId): bool
     {
+        // Respect the table prefix - see the comment in getChildren().
+        $tblTicket = TABLE_PREFIX . 'ticket';
+
         $currentId = $ticketId;
 
         for ($i = 0; $i < self::MAX_HIERARCHY_DEPTH; $i++) {
             $currentId_escaped = db_input($currentId);
-            $sql = "SELECT ticket_pid FROM ost_ticket WHERE ticket_id = $currentId_escaped";
+            $sql = "SELECT ticket_pid FROM {$tblTicket} WHERE ticket_id = $currentId_escaped";
             $result = db_query($sql);
             $row = db_fetch_array($result);
 

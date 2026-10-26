@@ -15,7 +15,9 @@ queue-decoration.php
 src/Asset/AssetDeployer.php
 src/Config/ConfigCache.php
 src/Database/DatabaseService.php
+src/Database/Table.php
 src/Hierarchy/HierarchyService.php
+src/Security/TicketAccessGuard.php
 src/Signal/TicketEventHandler.php
 src/UI/PanelRenderer.php
 

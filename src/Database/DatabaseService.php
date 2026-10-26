@@ -27,9 +27,9 @@ final class DatabaseService
         $sql = [];
 
         // Create hierarchy metadata table
-        if (!$this->tableExists('ost_ticket_hierarchy_metadata')) {
-            $this->log('Creating table', 'ost_ticket_hierarchy_metadata');
-            $sql[] = "CREATE TABLE IF NOT EXISTS `ost_ticket_hierarchy_metadata` (
+        if (!$this->tableExists(Table::name('ticket_hierarchy_metadata'))) {
+            $this->log('Creating table', Table::name('ticket_hierarchy_metadata'));
+            $sql[] = "CREATE TABLE IF NOT EXISTS `" . Table::name('ticket_hierarchy_metadata') . "` (
                 `ticket_id` int(11) unsigned PRIMARY KEY,
                 `auto_close_enabled` tinyint(1) DEFAULT 1,
                 `inherit_settings` text,
@@ -41,9 +41,9 @@ final class DatabaseService
         }
 
         // Create progress table
-        if (!$this->tableExists('ost_ticket_progress')) {
-            $this->log('Creating table', 'ost_ticket_progress');
-            $sql[] = "CREATE TABLE IF NOT EXISTS `ost_ticket_progress` (
+        if (!$this->tableExists(Table::name('ticket_progress'))) {
+            $this->log('Creating table', Table::name('ticket_progress'));
+            $sql[] = "CREATE TABLE IF NOT EXISTS `" . Table::name('ticket_progress') . "` (
                 `parent_id` int(11) unsigned PRIMARY KEY,
                 `total_children` int(11) DEFAULT 0,
                 `completed_children` int(11) DEFAULT 0,
@@ -54,20 +54,20 @@ final class DatabaseService
         }
 
         // Add version column to ost_ticket
-        if (!$this->columnExists('ost_ticket', 'version')) {
-            $this->log('Adding column', 'version to ost_ticket');
-            $sql[] = "ALTER TABLE `ost_ticket` ADD COLUMN `version` int(11) DEFAULT 0";
+        if (!$this->columnExists(Table::name('ticket'), 'version')) {
+            $this->log('Adding column', 'version to ' . Table::name('ticket'));
+            $sql[] = "ALTER TABLE `" . Table::name('ticket') . "` ADD COLUMN `version` int(11) DEFAULT 0";
         }
 
         // Add indexes
-        if (!$this->indexExists('ost_ticket', 'idx_ticket_pid')) {
+        if (!$this->indexExists(Table::name('ticket'), 'idx_ticket_pid')) {
             $this->log('Creating index', 'idx_ticket_pid');
-            $sql[] = "CREATE INDEX idx_ticket_pid ON `ost_ticket`(`ticket_pid`)";
+            $sql[] = "CREATE INDEX idx_ticket_pid ON `" . Table::name('ticket') . "`(`ticket_pid`)";
         }
 
-        if (!$this->indexExists('ost_ticket', 'idx_ticket_hierarchy')) {
+        if (!$this->indexExists(Table::name('ticket'), 'idx_ticket_hierarchy')) {
             $this->log('Creating index', 'idx_ticket_hierarchy');
-            $sql[] = "CREATE INDEX idx_ticket_hierarchy ON `ost_ticket`(`ticket_id`, `ticket_pid`, `status_id`)";
+            $sql[] = "CREATE INDEX idx_ticket_hierarchy ON `" . Table::name('ticket') . "`(`ticket_id`, `ticket_pid`, `status_id`)";
         }
 
         // Execute SQL statements
@@ -92,11 +92,11 @@ final class DatabaseService
      */
     public function removeAll(): void
     {
-        db_query("DROP TABLE IF EXISTS `ost_ticket_progress`");
-        db_query("DROP TABLE IF EXISTS `ost_ticket_hierarchy_metadata`");
-        db_query("ALTER TABLE `ost_ticket` DROP COLUMN IF EXISTS `version`");
-        db_query("DROP INDEX IF EXISTS `idx_ticket_pid` ON `ost_ticket`");
-        db_query("DROP INDEX IF EXISTS `idx_ticket_hierarchy` ON `ost_ticket`");
+        db_query("DROP TABLE IF EXISTS `" . Table::name('ticket_progress') . "`");
+        db_query("DROP TABLE IF EXISTS `" . Table::name('ticket_hierarchy_metadata') . "`");
+        db_query("ALTER TABLE `" . Table::name('ticket') . "` DROP COLUMN IF EXISTS `version`");
+        db_query("DROP INDEX IF EXISTS `idx_ticket_pid` ON `" . Table::name('ticket') . "`");
+        db_query("DROP INDEX IF EXISTS `idx_ticket_hierarchy` ON `" . Table::name('ticket') . "`");
     }
 
     /**
@@ -166,8 +166,8 @@ final class DatabaseService
     private function runMigrations(): void
     {
         // Migrate ticket_id column to unsigned if needed
-        $this->migrateColumnToUnsigned('ost_ticket_hierarchy_metadata', 'ticket_id');
-        $this->migrateColumnToUnsigned('ost_ticket_progress', 'parent_id');
+        $this->migrateColumnToUnsigned(Table::name('ticket_hierarchy_metadata'), 'ticket_id');
+        $this->migrateColumnToUnsigned(Table::name('ticket_progress'), 'parent_id');
     }
 
     /**
@@ -197,18 +197,18 @@ final class DatabaseService
     private function addForeignKeyConstraints(): void
     {
         $this->addForeignKey(
-            'ost_ticket_hierarchy_metadata',
+            Table::name('ticket_hierarchy_metadata'),
             'fk_hierarchy_ticket',
             'ticket_id',
-            'ost_ticket',
+            Table::name('ticket'),
             'ticket_id'
         );
 
         $this->addForeignKey(
-            'ost_ticket_progress',
+            Table::name('ticket_progress'),
             'fk_progress_ticket',
             'parent_id',
-            'ost_ticket',
+            Table::name('ticket'),
             'ticket_id'
         );
     }
@@ -227,10 +227,14 @@ final class DatabaseService
             return;
         }
 
-        // Check if FK already exists
+        // Check if this FK already exists (in this schema, by its name; a
+        // foreign key on a same-named table in another database must not
+        // count, and neither must another constraint on this table)
         $fkCheck = db_query("SELECT CONSTRAINT_NAME
             FROM information_schema.TABLE_CONSTRAINTS
-            WHERE TABLE_NAME = '$tableName'
+            WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = '$tableName'
+            AND CONSTRAINT_NAME = '$constraintName'
             AND CONSTRAINT_TYPE = 'FOREIGN KEY'");
 
         if (db_num_rows($fkCheck) > 0) {

@@ -267,55 +267,6 @@
         },
 
         /**
-         * Create new subticket via AJAX
-         *
-         * @param {number} parentId Parent ticket ID
-         * @param {string} subject Subject line
-         * @param {number} deptId Department ID
-         * @param {string} message Message/description
-         * @param {string} csrfToken CSRF token
-         */
-        createSubticket: function(parentId, subject, deptId, message, csrfToken) {
-            var self = this;
-
-            // Find panel
-            var $panel = $('.subticket-panel').filter(function() {
-                return $(this).data('ticket-id') == parentId;
-            });
-
-            this.showLoading($panel, 'Creating subticket...');
-
-            $.ajax({
-                url: 'ajax-subticket.php?action=create',
-                method: 'POST',
-                data: {
-                    parent_id: parentId,
-                    subject: subject,
-                    dept_id: deptId,
-                    message: message,
-                    csrf_token: csrfToken
-                },
-                dataType: 'json',
-                success: function(response) {
-                    self.hideLoading($panel);
-
-                    if (response.success) {
-                        self.showSuccess('Subticket created successfully: #' + response.ticket_number);
-
-                        // Reload panel to show new child
-                        self.reloadPanel(parentId);
-                    } else {
-                        self.showError(response.message || 'Failed to create subticket');
-                    }
-                },
-                error: function(xhr, status, error) {
-                    self.hideLoading($panel);
-                    self.showError('Server error: ' + error);
-                }
-            });
-        },
-
-        /**
          * Reload panel content via AJAX
          *
          * @param {number} ticketId Ticket ID

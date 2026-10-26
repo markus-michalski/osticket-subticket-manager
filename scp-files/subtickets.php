@@ -61,13 +61,18 @@ include(STAFFINC_DIR . 'header.inc.php');
     </p>
 
     <?php
+    // Respect the configured table prefix (TABLE_PREFIX in ost-config.php)
+    $tblPrefix = defined('TABLE_PREFIX') ? TABLE_PREFIX : 'ost_';
+    $tblTicket = $tblPrefix . 'ticket';
+    $tblStatus = $tblPrefix . 'ticket_status';
+
     // Fetch all tickets with parent relationships
     // Simple query - we'll use osTicket Ticket class to get subject
     $sql = "SELECT t.ticket_id, t.number, t.ticket_pid,
                    s.name as status,
                    t.created
-            FROM ost_ticket t
-            LEFT JOIN ost_ticket_status s ON t.status_id = s.id
+            FROM {$tblTicket} t
+            LEFT JOIN {$tblStatus} s ON t.status_id = s.id
             WHERE t.ticket_pid IS NOT NULL AND t.ticket_pid > 0
             ORDER BY t.ticket_pid, t.created ASC
             LIMIT 100";

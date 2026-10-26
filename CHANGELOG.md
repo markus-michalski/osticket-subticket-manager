@@ -8,22 +8,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Nothing yet
+- The hierarchy limits from the plugin configuration are now enforced when tickets are linked: `max_depth`, `max_children`, `require_parent_open` and `allow_nested_subtickets`. Values outside their range are rejected when the configuration is saved.
+- `TicketAccessGuard`: one place that answers "may this agent view / link this ticket", backed by osTicket's `Ticket::checkStaffPerm()` and the `ticket.link` role permission.
 
 ### Changed
-- Nothing yet
+- Linking a ticket now resolves the parent number first and checks the agent's permission on both tickets before anything is written.
+- The parent-chain walk refuses a link when the chain revisits a ticket or is longer than 10 levels, instead of treating it as safe.
+- `batch_parent_status` is rate limited like the other AJAX actions.
+- The debug log (when `SUBTICKET_DEBUG` is on) is written to the system temp directory with mode 0600 and never through a symlink; `SUBTICKET_DEBUG_LOG` overrides the path.
+- AJAX errors return a generic message; the exception detail goes to the server error log only (`Throwable`, not just `Exception`).
+- CI workflow runs with `contents: read` permissions.
 
 ### Deprecated
 - Nothing yet
 
 ### Removed
-- Nothing yet
+- AJAX action `create` and the matching JavaScript method. It bypassed `Ticket::open()` and therefore the agent's create permission and department; the UI never used it (new subtickets go through the regular new-ticket form).
+- Configuration options that nothing read: `auto_close_parent`, `cascade_hold`, `cascade_assignment`, `show_children_in_queue`, `notify_on_auto_close` (#6). Auto-close is not implemented.
 
 ### Fixed
-- Nothing yet
+- Queue indicator loader is now inserted into `<head>` via an output buffer instead of being echoed during plugin bootstrap. The echo landed in front of `<!DOCTYPE html>`, which put the staff pages into quirks mode and positioned osTicket's dialogs (e.g. the due date editor) off-screen on long ticket pages. PJAX fragments keep receiving the loader at the top, as before.
 
 ### Security
-- Nothing yet
+- The `subticket_parent` hand-off from the ticket view to the new-ticket form could be set from any page, including the client portal, never expired, and was applied with a raw UPDATE without checking who the agent was or whether the parent was accessible. The candidate is now only accepted from `scp/tickets.php?a=open`, expires after 10 minutes, and is consumed only in a staff request by an agent who may link the parent, through the same checks as a manual link.
+- `action=children` returned the children of any ticket id to any agent; it now requires view access to the parent and leaves out children the agent may not view (#7).
+- `link` and `unlink` checked only the current ticket; the other end of the link is now checked as well (#7).
+- `canAccessDept()` was called with an integer where osTicket expects a `Dept` object, so it always returned `false` and only admins could link or unlink, and admins could do so across all departments. Replaced by `Ticket::checkStaffPerm()`.
+- The ticket-view panel was rendered for the `object.view` signal of the client portal as well, showing parent and child ticket numbers and subjects to clients. The panel is now staff-only, redacts a parent the agent may not view and hides children the agent may not view.
+- `action=version` disclosed absolute paths, file sizes and timestamps, the PHP version and OPcache status to every agent; it is admin-only and returns the plugin version only.
+- Dev dependency `phpunit/phpunit` updated past CVE-2026-24765 (not part of the release package).
 
 ## [2.0.3] - 2026-05-26
 

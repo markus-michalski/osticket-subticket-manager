@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SubticketManager\Hierarchy;
 
+use SubticketManager\Config\ConfigCache;
+
 /**
  * HierarchyService - Manages ticket parent-child relationships
  *
@@ -12,13 +14,17 @@ namespace SubticketManager\Hierarchy;
  * - Getting parent/children
  * - Circular dependency detection
  * - Ticket number to ID resolution
+ * - Enforcing the configured hierarchy limits
  *
  * @package SubticketManager
  */
 final class HierarchyService
 {
     /**
-     * Maximum hierarchy depth for circular dependency checks
+     * Hard ceiling for walking up a parent chain.
+     *
+     * A chain longer than this is treated as unresolved and the link is
+     * refused: the plugin can no longer prove that it does not close a cycle.
      */
     private const MAX_HIERARCHY_DEPTH = 10;
 
@@ -173,6 +179,11 @@ final class HierarchyService
     /**
      * Link a ticket as child to a parent
      *
+     * Refuses the link when either ticket is missing, the link would close a
+     * cycle, the parent chain cannot be resolved, or one of the configured
+     * limits (max_children, max_depth, allow_nested_subtickets,
+     * require_parent_open) is violated.
+     *
      * @param int $childId Child ticket ID
      * @param int $parentId Parent ticket ID
      * @return bool Success
@@ -207,9 +218,15 @@ final class HierarchyService
             return false;
         }
 
-        // Prevent circular dependency
+        // Prevent circular dependency (and refuse chains we cannot resolve)
         if ($this->isDescendant($parentId, $childId)) {
             error_log('[SUBTICKET-PLUGIN] linkTicket failed: Circular dependency detected');
+            return false;
+        }
+
+        $violation = $this->checkLimits($childId, $parentId);
+        if ($violation !== null) {
+            error_log("[SUBTICKET-PLUGIN] linkTicket refused: $violation (child: $childId, parent: $parentId)");
             return false;
         }
 
@@ -253,32 +270,161 @@ final class HierarchyService
     /**
      * Check if ticket A is a descendant of ticket B
      *
+     * Returns true as well when the parent chain revisits a ticket or is
+     * longer than MAX_HIERARCHY_DEPTH: in both cases the plugin cannot prove
+     * that linking is safe, and the caller must refuse.
+     *
      * @param int $ticketId Ticket to check
      * @param int $ancestorId Potential ancestor
-     * @return bool True if ticketId is descendant of ancestorId
+     * @return bool True if ticketId is (or may be) a descendant of ancestorId
      */
     public function isDescendant(int $ticketId, int $ancestorId): bool
     {
         $currentId = $ticketId;
+        $visited = [$ticketId => true];
 
         for ($i = 0; $i < self::MAX_HIERARCHY_DEPTH; $i++) {
-            $currentId_escaped = db_input($currentId);
-            $sql = "SELECT ticket_pid FROM ost_ticket WHERE ticket_id = $currentId_escaped";
-            $result = db_query($sql);
-            $row = db_fetch_array($result);
+            $parentId = $this->fetchParentId($currentId);
 
-            if (!$row || !$row['ticket_pid']) {
+            if ($parentId === null) {
                 return false;
             }
 
-            if ((int)$row['ticket_pid'] === $ancestorId) {
+            if ($parentId === $ancestorId) {
                 return true;
             }
 
-            $currentId = (int)$row['ticket_pid'];
+            if (isset($visited[$parentId])) {
+                error_log("[SUBTICKET-PLUGIN] isDescendant: existing cycle detected at ticket $parentId");
+                return true;
+            }
+
+            $visited[$parentId] = true;
+            $currentId = $parentId;
         }
 
-        return false;
+        error_log("[SUBTICKET-PLUGIN] isDescendant: parent chain of ticket $ticketId exceeds " . self::MAX_HIERARCHY_DEPTH . ' levels, refusing');
+        return true;
+    }
+
+    /**
+     * Number of ancestors above a ticket (0 for a root ticket)
+     *
+     * Returns null when the chain cannot be resolved within
+     * MAX_HIERARCHY_DEPTH or revisits a ticket.
+     */
+    public function getDepth(int $ticketId): ?int
+    {
+        $currentId = $ticketId;
+        $visited = [$ticketId => true];
+
+        for ($depth = 0; $depth <= self::MAX_HIERARCHY_DEPTH; $depth++) {
+            $parentId = $this->fetchParentId($currentId);
+
+            if ($parentId === null) {
+                return $depth;
+            }
+
+            if (isset($visited[$parentId])) {
+                return null;
+            }
+
+            $visited[$parentId] = true;
+            $currentId = $parentId;
+        }
+
+        return null;
+    }
+
+    /**
+     * Number of direct children of a ticket
+     */
+    public function countChildren(int $ticketId): int
+    {
+        $ticketId_escaped = db_input($ticketId);
+        $result = db_query("SELECT COUNT(*) AS child_count FROM ost_ticket WHERE ticket_pid = $ticketId_escaped");
+        $row = $result ? db_fetch_array($result) : null;
+
+        return $row && isset($row['child_count']) ? (int)$row['child_count'] : 0;
+    }
+
+    /**
+     * Apply the configured hierarchy limits to a prospective link
+     *
+     * @return string|null Reason for refusal, or null when the link is allowed
+     */
+    private function checkLimits(int $childId, int $parentId): ?string
+    {
+        $config = ConfigCache::getInstance();
+
+        $maxChildren = max(1, (int)$config->get('max_children', 50));
+        if ($this->countChildren($parentId) >= $maxChildren) {
+            return "Parent already has $maxChildren children (max_children)";
+        }
+
+        $parentDepth = $this->getDepth($parentId);
+        if ($parentDepth === null) {
+            return 'Parent chain cannot be resolved';
+        }
+
+        $allowNested = (bool)$config->get('allow_nested_subtickets', true);
+        if (!$allowNested) {
+            if ($parentDepth > 0) {
+                return 'Parent is itself a subticket (allow_nested_subtickets is off)';
+            }
+            if ($this->countChildren($childId) > 0) {
+                return 'Child has subtickets of its own (allow_nested_subtickets is off)';
+            }
+        }
+
+        $maxDepth = max(1, (int)$config->get('max_depth', 3));
+        if ($parentDepth + 1 > $maxDepth) {
+            return "Link would exceed max_depth of $maxDepth";
+        }
+
+        if ((bool)$config->get('require_parent_open', true)) {
+            $state = $this->fetchStatusState($parentId);
+            if ($state !== null && $state !== 'open') {
+                return "Parent ticket is not open (state: $state)";
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Parent id of a ticket, or null for a root ticket / unknown ticket
+     */
+    private function fetchParentId(int $ticketId): ?int
+    {
+        $ticketId_escaped = db_input($ticketId);
+        $result = db_query("SELECT ticket_pid FROM ost_ticket WHERE ticket_id = $ticketId_escaped");
+        $row = $result ? db_fetch_array($result) : null;
+
+        if (!$row || empty($row['ticket_pid'])) {
+            return null;
+        }
+
+        return (int)$row['ticket_pid'];
+    }
+
+    /**
+     * Status state ('open', 'closed', ...) of a ticket, or null when unknown
+     */
+    private function fetchStatusState(int $ticketId): ?string
+    {
+        $ticketId_escaped = db_input($ticketId);
+        $result = db_query("SELECT s.state
+                FROM ost_ticket t
+                LEFT JOIN ost_ticket_status s ON t.status_id = s.id
+                WHERE t.ticket_id = $ticketId_escaped");
+        $row = $result ? db_fetch_array($result) : null;
+
+        if (!$row || !isset($row['state']) || $row['state'] === null) {
+            return null;
+        }
+
+        return strtolower((string)$row['state']);
     }
 
     /**

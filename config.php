@@ -10,7 +10,9 @@ if (defined('INCLUDE_DIR') && file_exists(INCLUDE_DIR . 'class.plugin.php')) {
 /**
  * Subticket Manager Plugin Configuration
  *
- * Defines configurable options for the subticket plugin
+ * Every option listed here is read by the plugin. The hierarchy limits are
+ * enforced in HierarchyService::linkTicket(), remove_data_on_uninstall in
+ * SubticketPlugin::uninstall().
  */
 class SubticketPluginConfig extends PluginConfig
 {
@@ -46,7 +48,7 @@ class SubticketPluginConfig extends PluginConfig
                 'configuration' => [
                     'size' => 10,
                     'length' => 5,
-                    'desc' => 'Maximum nesting level for subtickets (0-10, default: 3)'
+                    'desc' => 'How many levels a chain of subtickets may have below a root ticket (1-10, default: 3). Linking is refused beyond this depth.'
                 ],
                 'default' => '3'
             ]),
@@ -57,52 +59,16 @@ class SubticketPluginConfig extends PluginConfig
                 'configuration' => [
                     'size' => 10,
                     'length' => 5,
-                    'desc' => 'Maximum number of subtickets allowed per parent (default: 50)'
+                    'desc' => 'Maximum number of subtickets allowed per parent (1-1000, default: 50)'
                 ],
                 'default' => '50'
-            ]),
-
-            'auto_close_parent' => new BooleanField([
-                'id' => 'auto_close_parent',
-                'label' => 'Auto-close Parent Ticket',
-                'configuration' => [
-                    'desc' => 'Automatically close parent ticket when all subtickets are closed'
-                ],
-                'default' => true
-            ]),
-
-            'cascade_hold' => new BooleanField([
-                'id' => 'cascade_hold',
-                'label' => 'Cascade Hold Status',
-                'configuration' => [
-                    'desc' => 'When parent is set to "On Hold", automatically hold all subtickets'
-                ],
-                'default' => true
-            ]),
-
-            'cascade_assignment' => new BooleanField([
-                'id' => 'cascade_assignment',
-                'label' => 'Cascade Assignment Changes',
-                'configuration' => [
-                    'desc' => 'When parent ticket is reassigned, automatically reassign all subtickets'
-                ],
-                'default' => false
-            ]),
-
-            'show_children_in_queue' => new BooleanField([
-                'id' => 'show_children_in_queue',
-                'label' => 'Show Subtickets in Queue',
-                'configuration' => [
-                    'desc' => 'Display subtickets in queue views (default: hide, show only parent)'
-                ],
-                'default' => false
             ]),
 
             'require_parent_open' => new BooleanField([
                 'id' => 'require_parent_open',
                 'label' => 'Require Parent Ticket to be Open',
                 'configuration' => [
-                    'desc' => 'Prevent creating subtickets when parent ticket is closed'
+                    'desc' => 'Refuse linking a subticket to a parent that is not open'
                 ],
                 'default' => true
             ]),
@@ -116,15 +82,6 @@ class SubticketPluginConfig extends PluginConfig
                 'default' => true
             ]),
 
-            'notify_on_auto_close' => new BooleanField([
-                'id' => 'notify_on_auto_close',
-                'label' => 'Notify on Auto-Close',
-                'configuration' => [
-                    'desc' => 'Send notification when parent ticket is automatically closed'
-                ],
-                'default' => true
-            ]),
-
             'remove_data_on_uninstall' => new BooleanField([
                 'id' => 'remove_data_on_uninstall',
                 'label' => 'Remove Data on Uninstall',
@@ -134,8 +91,36 @@ class SubticketPluginConfig extends PluginConfig
                 'default' => false
             ])
 
-            // NOTE: Debug mode is currently controlled by SUBTICKET_DEBUG constant
-            // in class.SubticketPlugin.php (line 12). UI config coming in future version.
+            // NOTE: Debug mode is controlled by the SUBTICKET_DEBUG constant
+            // in class.SubticketPlugin.php.
         ];
+    }
+
+    /**
+     * Validate the numeric limits before osTicket stores them
+     *
+     * @param array $config Submitted values (by reference)
+     * @param array $errors Validation errors (by reference)
+     * @return bool True when the configuration may be saved
+     */
+    function pre_save(&$config, &$errors)
+    {
+        $limits = [
+            'max_depth' => [1, 10],
+            'max_children' => [1, 1000],
+        ];
+
+        foreach ($limits as $key => [$min, $max]) {
+            $raw = isset($config[$key]) ? trim((string)$config[$key]) : '';
+
+            if ($raw === '' || !ctype_digit($raw) || (int)$raw < $min || (int)$raw > $max) {
+                $errors[$key] = sprintf('Enter a whole number between %d and %d', $min, $max);
+                continue;
+            }
+
+            $config[$key] = (string)(int)$raw;
+        }
+
+        return empty($errors);
     }
 }

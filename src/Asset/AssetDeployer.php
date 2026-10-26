@@ -38,7 +38,6 @@ final class AssetDeployer
         $results = [
             $this->deployFile('scp-files/subtickets.php', 'subtickets.php', $errors),
             $this->deployFile('scp-files/ajax-subticket.php', 'ajax-subticket.php', $errors),
-            $this->deployFile('scp-files/apps.php', 'apps.php', $errors),
         ];
 
         return !in_array(false, $results, true);

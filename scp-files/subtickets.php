@@ -57,17 +57,22 @@ include(STAFFINC_DIR . 'header.inc.php');
     <h1>Ticket Hierarchies</h1>
 
     <p style="margin-bottom: 20px; color: #666;">
-        Übersicht aller Parent-Child Ticket-Beziehungen im System.
+        Overview of all parent-child ticket relationships in the system.
     </p>
 
     <?php
+    // Respect the configured table prefix (TABLE_PREFIX in ost-config.php)
+    $tblPrefix = defined('TABLE_PREFIX') ? TABLE_PREFIX : 'ost_';
+    $tblTicket = $tblPrefix . 'ticket';
+    $tblStatus = $tblPrefix . 'ticket_status';
+
     // Fetch all tickets with parent relationships
     // Simple query - we'll use osTicket Ticket class to get subject
     $sql = "SELECT t.ticket_id, t.number, t.ticket_pid,
                    s.name as status,
                    t.created
-            FROM ost_ticket t
-            LEFT JOIN ost_ticket_status s ON t.status_id = s.id
+            FROM {$tblTicket} t
+            LEFT JOIN {$tblStatus} s ON t.status_id = s.id
             WHERE t.ticket_pid IS NOT NULL AND t.ticket_pid > 0
             ORDER BY t.ticket_pid, t.created ASC
             LIMIT 100";
@@ -116,18 +121,18 @@ include(STAFFINC_DIR . 'header.inc.php');
     <table class="list" border="0" cellspacing="1" cellpadding="2">
         <thead>
             <tr>
-                <th width="10%">Parent-Ticket</th>
-                <th width="20%">Betreff</th>
+                <th width="10%">Parent ticket</th>
+                <th width="20%">Subject</th>
                 <th width="10%">Status</th>
-                <th width="8%">Anzahl</th>
-                <th width="52%">Child-Tickets</th>
+                <th width="8%">Count</th>
+                <th width="52%">Child tickets</th>
             </tr>
         </thead>
         <tbody>
             <?php if (empty($subtickets)): ?>
             <tr>
                 <td colspan="5" style="text-align: center; padding: 40px;">
-                    <em>Keine Ticket-Hierarchien gefunden.</em>
+                    <em>No ticket hierarchies found.</em>
                 </td>
             </tr>
             <?php else: ?>

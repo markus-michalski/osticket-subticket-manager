@@ -10,13 +10,13 @@
  */
 
 // Wait for jQuery to be available
-(function() {
+(function waitForJQuery() {
     'use strict';
 
     // Check if jQuery is loaded
     if (typeof jQuery === 'undefined') {
         // Retry after a short delay
-        setTimeout(arguments.callee, 100);
+        setTimeout(waitForJQuery, 100);
         return;
     }
 

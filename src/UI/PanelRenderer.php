@@ -351,4 +351,35 @@ JS;
 </script>
 JS;
     }
+
+    /**
+     * Insert a markup snippet right before the closing </head> tag.
+     *
+     * Plugin bootstrap runs before osTicket prints the doctype. Echoing there
+     * puts the snippet in front of <!DOCTYPE html>, which switches browsers
+     * into quirks mode (document.compatMode === 'BackCompat'). In quirks mode
+     * jQuery's $(window).height() reports the document height instead of the
+     * viewport, so osTicket's dialogs (.dialog, e.g. the due date editor) are
+     * positioned off-screen on long pages.
+     *
+     * Documents without a </head> tag (CSV exports, PDF output, redirects)
+     * are returned unchanged.
+     *
+     * @param string $document Complete response body
+     * @param string $snippet  Markup to insert
+     * @return string Document with the snippet inside <head>, or unchanged
+     */
+    public static function insertBeforeHeadEnd(string $document, string $snippet): string
+    {
+        if ($snippet === '') {
+            return $document;
+        }
+
+        $position = stripos($document, '</head>');
+        if ($position === false) {
+            return $document;
+        }
+
+        return substr($document, 0, $position) . $snippet . "\n" . substr($document, $position);
+    }
 }

@@ -252,6 +252,11 @@ class SubticketPlugin extends Plugin
 
     /**
      * Load queue indicator script on queue pages
+     *
+     * bootstrap() runs before osTicket sends any output, so the loader must
+     * not be echoed here: anything printed in front of <!DOCTYPE html> puts
+     * the browser into quirks mode and breaks the positioning of osTicket's
+     * dialogs. The script is buffered into <head> instead.
      */
     private function loadQueueIndicatorScript(): void
     {
@@ -266,8 +271,33 @@ class SubticketPlugin extends Plugin
             return;
         }
 
-        echo $this->panelRenderer->getQueueIndicatorJavaScript();
-        subticket_log('Queue indicator script loaded');
+        if (defined('PHPUNIT_RUNNING')) {
+            return;
+        }
+
+        ob_start([$this, 'injectQueueIndicatorScript']);
+        subticket_log('Queue indicator script buffered for <head>');
+    }
+
+    /**
+     * Output buffer callback: place the queue indicator loader inside <head>
+     *
+     * PJAX navigation (X-PJAX request header) returns a body fragment without
+     * <head>; osTicket's own header.inc.php prints extra <script> headers at
+     * the top of such fragments, and the loader is prepended the same way so
+     * the indicator keeps working when staff reach a queue via PJAX.
+     *
+     * @param string $buffer Complete response body collected by ob_start()
+     */
+    public function injectQueueIndicatorScript(string $buffer): string
+    {
+        $snippet = $this->panelRenderer->getQueueIndicatorJavaScript();
+
+        if (isset($_SERVER['HTTP_X_PJAX'])) {
+            return $snippet . "\n" . $buffer;
+        }
+
+        return PanelRenderer::insertBeforeHeadEnd($buffer, $snippet);
     }
 
     /**

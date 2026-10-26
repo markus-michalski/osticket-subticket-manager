@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 ### Fixed
-- Nothing yet
+- Queue indicator loader is now inserted into `<head>` via an output buffer instead of being echoed during plugin bootstrap. The echo landed in front of `<!DOCTYPE html>`, which put the staff pages into quirks mode and positioned osTicket's dialogs (e.g. the due date editor) off-screen on long ticket pages. PJAX fragments keep receiving the loader at the top, as before.
 
 ### Security
 - Nothing yet

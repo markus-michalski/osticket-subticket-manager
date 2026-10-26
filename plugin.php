@@ -5,7 +5,7 @@ return array(
     'version' =>        '2.0.3',
     'name' =>           'Subticket Manager',
     'author' =>         'Markus Michalski',
-    'description' =>    'Subticket hierarchy management with admin interface and AJAX backend (Phase 3)',
-    'url' =>            'https://github.com/markus-michalski/osticket-plugins/tree/main/subticket-manager',
+    'description' =>    'Subticket hierarchy management with admin interface and AJAX backend',
+    'url' =>            'https://github.com/markus-michalski/osticket-subticket-manager',
     'plugin' =>         'class.SubticketPlugin.php:SubticketPlugin'
 );

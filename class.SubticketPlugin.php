@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 /**
  * Debug mode control
- * Set to true to enable detailed logging to /tmp/subticket-debug.log
+ * Set to true to enable detailed logging to subticket-debug.log in the
+ * system temp directory (SUBTICKET_DEBUG_LOG overrides the path).
  * Set to false to disable all logging (production mode)
  */
 if (!defined('SUBTICKET_DEBUG')) {
@@ -12,7 +13,10 @@ if (!defined('SUBTICKET_DEBUG')) {
 }
 
 /**
- * Debug helper - writes to /tmp/subticket-debug.log
+ * Debug helper - appends to the debug log
+ *
+ * The file is created with mode 0600 and never followed through a symlink,
+ * so a shared temp directory cannot be used to read or redirect the log.
  *
  * @param string $msg Log message or title
  * @param string $details Optional details
@@ -23,11 +27,21 @@ function subticket_log(string $msg, string $details = ''): void
         return;
     }
 
-    $logFile = '/tmp/subticket-debug.log';
+    $logFile = defined('SUBTICKET_DEBUG_LOG')
+        ? SUBTICKET_DEBUG_LOG
+        : rtrim(sys_get_temp_dir(), '/\\') . DIRECTORY_SEPARATOR . 'subticket-debug.log';
+
+    if (is_link($logFile)) {
+        return;
+    }
+
     $timestamp = date('Y-m-d H:i:s');
     $fullMessage = $details ? "$msg: $details" : $msg;
 
-    @file_put_contents($logFile, "$timestamp - $fullMessage\n", FILE_APPEND);
+    $isNew = !file_exists($logFile);
+    if (@file_put_contents($logFile, "$timestamp - $fullMessage\n", FILE_APPEND | LOCK_EX) !== false && $isNew) {
+        @chmod($logFile, 0600);
+    }
 }
 
 subticket_log('Plugin class file loaded: ' . __FILE__);
@@ -62,7 +76,9 @@ if (file_exists(__DIR__ . '/vendor/autoload.php')) {
 use SubticketManager\Asset\AssetDeployer;
 use SubticketManager\Config\ConfigCache;
 use SubticketManager\Database\DatabaseService;
+use SubticketManager\Database\Table;
 use SubticketManager\Hierarchy\HierarchyService;
+use SubticketManager\Security\TicketAccessGuard;
 use SubticketManager\Signal\TicketEventHandler;
 use SubticketManager\UI\PanelRenderer;
 
@@ -80,6 +96,7 @@ class SubticketPlugin extends Plugin
     private ?HierarchyService $hierarchyService = null;
     private ?TicketEventHandler $eventHandler = null;
     private ?PanelRenderer $panelRenderer = null;
+    private ?TicketAccessGuard $accessGuard = null;
 
     /**
      * Only one instance of this plugin makes sense
@@ -174,30 +191,48 @@ class SubticketPlugin extends Plugin
         $this->databaseService = new DatabaseService();
         $this->hierarchyService = new HierarchyService();
         $this->panelRenderer = new PanelRenderer($pluginUrl);
+        $this->accessGuard = new TicketAccessGuard();
         $this->eventHandler = new TicketEventHandler(
             $this->hierarchyService,
-            $this->panelRenderer
+            $this->panelRenderer,
+            $this->accessGuard
         );
     }
 
     /**
-     * Populate config cache for signal callbacks
+     * Populate config cache for signal callbacks and the AJAX handler
+     *
+     * Only options that are read somewhere are cached. The limits are
+     * enforced by HierarchyService::linkTicket(). A value that is missing or
+     * out of range falls back to the default from config.php.
      */
     private function populateConfigCache(): void
     {
         $config = $this->getConfig();
 
+        $maxDepth = (int)$config->get('max_depth');
+        $maxChildren = (int)$config->get('max_children');
+
         ConfigCache::getInstance()->populate([
-            'auto_close_parent' => $config->get('auto_close_parent') ?? true,
-            'cascade_hold' => $config->get('cascade_hold') ?? true,
-            'cascade_assignment' => $config->get('cascade_assignment') ?? false,
-            'show_children_in_queue' => $config->get('show_children_in_queue') ?? false,
-            'require_parent_open' => $config->get('require_parent_open') ?? true,
-            'allow_nested_subtickets' => $config->get('allow_nested_subtickets') ?? true,
-            'notify_on_auto_close' => $config->get('notify_on_auto_close') ?? true,
-            'max_depth' => (int)($config->get('max_depth') ?? 3),
-            'max_children' => (int)($config->get('max_children') ?? 50),
+            'require_parent_open' => $this->readBool($config->get('require_parent_open'), true),
+            'allow_nested_subtickets' => $this->readBool($config->get('allow_nested_subtickets'), true),
+            'max_depth' => ($maxDepth >= 1 && $maxDepth <= 10) ? $maxDepth : 3,
+            'max_children' => ($maxChildren >= 1 && $maxChildren <= 1000) ? $maxChildren : 50,
         ]);
+    }
+
+    /**
+     * Read a boolean option; null (not saved yet) yields the default
+     *
+     * @param mixed $value Raw config value
+     */
+    private function readBool($value, bool $default): bool
+    {
+        if ($value === null || $value === '') {
+            return $default;
+        }
+
+        return (bool)$value;
     }
 
     /**
@@ -252,6 +287,11 @@ class SubticketPlugin extends Plugin
 
     /**
      * Load queue indicator script on queue pages
+     *
+     * bootstrap() runs before osTicket sends any output, so the loader must
+     * not be echoed here: anything printed in front of <!DOCTYPE html> puts
+     * the browser into quirks mode and breaks the positioning of osTicket's
+     * dialogs. The script is buffered into <head> instead.
      */
     private function loadQueueIndicatorScript(): void
     {
@@ -266,8 +306,33 @@ class SubticketPlugin extends Plugin
             return;
         }
 
-        echo $this->panelRenderer->getQueueIndicatorJavaScript();
-        subticket_log('Queue indicator script loaded');
+        if (defined('PHPUNIT_RUNNING')) {
+            return;
+        }
+
+        ob_start([$this, 'injectQueueIndicatorScript']);
+        subticket_log('Queue indicator script buffered for <head>');
+    }
+
+    /**
+     * Output buffer callback: place the queue indicator loader inside <head>
+     *
+     * PJAX navigation (X-PJAX request header) returns a body fragment without
+     * <head>; osTicket's own header.inc.php prints extra <script> headers at
+     * the top of such fragments, and the loader is prepended the same way so
+     * the indicator keeps working when staff reach a queue via PJAX.
+     *
+     * @param string $buffer Complete response body collected by ob_start()
+     */
+    public function injectQueueIndicatorScript(string $buffer): string
+    {
+        $snippet = $this->panelRenderer->getQueueIndicatorJavaScript();
+
+        if (isset($_SERVER['HTTP_X_PJAX'])) {
+            return $snippet . "\n" . $buffer;
+        }
+
+        return PanelRenderer::insertBeforeHeadEnd($buffer, $snippet);
     }
 
     /**
@@ -365,6 +430,18 @@ class SubticketPlugin extends Plugin
     {
         $this->ensureServicesInitialized();
         return $this->hierarchyService->getParent((int)$childId);
+    }
+
+    /**
+     * Resolve a ticket number (as shown to agents) to the internal ticket ID
+     *
+     * @param string|int $number
+     * @return int|null
+     */
+    public function getTicketIdByNumber($number): ?int
+    {
+        $this->ensureServicesInitialized();
+        return $this->hierarchyService->getTicketIdByNumber($number);
     }
 
     /**
@@ -535,7 +612,9 @@ class SubticketPlugin extends Plugin
         }
 
         if (function_exists('db_query')) {
-            $result = db_query("SHOW COLUMNS FROM `ost_ticket` LIKE 'ticket_pid'");
+            // Respect the configured table prefix, otherwise this reports a
+            // false negative on every installation without "ost_".
+            $result = db_query("SHOW COLUMNS FROM `" . Table::name('ticket') . "` LIKE 'ticket_pid'");
             if (db_num_rows($result) == 0) {
                 subticket_log('Required column ticket_pid not found');
                 return false;

@@ -13,6 +13,12 @@ ini_set('display_errors', 1);
 // Define PHPUnit running flag to prevent echo in tests
 define('PHPUNIT_RUNNING', true);
 
+// osTicket's table prefix (ost-config.php). Tests run with the default;
+// TablePrefixTest starts a subprocess with a different value.
+if (!defined('TABLE_PREFIX')) {
+    define('TABLE_PREFIX', 'ost_');
+}
+
 // Define osTicket paths (mock for testing)
 define('OSTSCPINC', dirname(__DIR__) . '/tests/mocks/');
 define('INCLUDE_DIR', OSTSCPINC);
